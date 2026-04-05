@@ -53,7 +53,7 @@ Foundation that everything else depends on.
 **Notes:**
 - Python uses `scipy.interpolate.CubicSpline` — Julia equivalent: `Interpolations.jl` or manual cubic spline
 - `spline2d` returns a dict with spline objects; in Julia use a struct
-- Files: `src/geometry.jl`, `src/spline.jl`
+- Files: `src/naca.jl`, `src/spline.jl`, `src/geometry.jl`
 
 ---
 
@@ -139,7 +139,7 @@ All pure functions, depend only on `panel_info`.
 **Notes:**
 - Every function returns (value, value_U) where value_U is the Jacobian w.r.t. state U
 - These are the closure relations from PDF Appendix B (Eqs. 45-79)
-- File: `src/closures.jl`
+- Files: `src/closures_shape.jl` (4a-4c), `src/closures_friction.jl` (4d), `src/closures_dissipation.jl` (4e-4f)
 
 ---
 
@@ -221,28 +221,33 @@ cl=0.4889, cd=0.00617, cm=-0.0501
 
 ```
 src/
-  JFoil.jl          # module, includes, exports
-  types.jl           # mutable structs (Phase 0)
-  utils.jl           # utilities (Phase 0)
-  spline.jl          # spline utilities (Phase 1)
-  geometry.jl        # NACA, paneling (Phase 1)
-  panels.jl          # panel influence functions (Phase 2)
-  thermo.jl          # thermodynamics (Phase 3a)
-  inviscid.jl        # inviscid solver (Phase 3)
-  closures.jl        # get_* closure relations (Phase 4)
-  boundary_layer.jl  # BL residuals, transition (Phase 5)
-  coupling.jl        # ue_m matrices (Phase 6)
-  solver.jl          # coupled Newton solver (Phase 7)
-  postprocess.jl     # distributions, geometry mods (Phase 8)
+  JFoil.jl              # module, includes, exports
+  types.jl              # mutable structs (Phase 0)
+  utils.jl              # utilities (Phase 0)
+  spline.jl             # spline utilities (Phase 1b)
+  naca.jl               # NACA coordinate generation (Phase 1a)
+  geometry.jl           # set_coords, make_panels (Phase 1a,1c)
+  panels.jl             # panel influence functions (Phase 2)
+  thermo.jl             # thermodynamics (Phase 3a)
+  inviscid.jl           # inviscid solver (Phase 3b-d)
+  closures_shape.jl     # shape parameter closures (Phase 4a-4c)
+  closures_friction.jl  # friction & amplification closures (Phase 4d)
+  closures_dissipation.jl # dissipation & shear stress closures (Phase 4e-4f)
+  boundary_layer.jl     # BL residuals, transition (Phase 5)
+  coupling.jl           # ue_m matrices, surface ID (Phase 6)
+  solver.jl             # coupled Newton solver (Phase 7)
+  postprocess.jl        # distributions, geometry mods (Phase 8)
 
 test/
   runtests.jl
   test_utils.jl
   test_spline.jl
+  test_naca.jl
   test_geometry.jl
   test_panels.jl
+  test_thermo.jl
   test_inviscid.jl
-  test_closures.jl
+  test_closures.jl      # covers all three closures_*.jl
   test_boundary_layer.jl
   test_coupling.jl
   test_solver.jl
