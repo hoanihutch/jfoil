@@ -11,11 +11,17 @@ include("spline.jl")
 include("naca.jl")
 include("geometry.jl")
 
+# Phase 2: Panel influence functions
+include("panels.jl")
+
 # Exports
 export Geom, Panel, Oper, Isol, Vsol, Glob, Post, Param, Mfoil
 export vprint, norm2, dist
 export CubicSpline1D, Spline2D, quadseg, spline2d, splineval, splinetan, spline_curvature
 export naca_points!
 export set_coords!, space_geom, TE_info, panel_info, clear_solution!, make_panels!
+export panel_linvortex_velocity, panel_linvortex_stream
+export panel_constsource_velocity, panel_constsource_stream
+export panel_linsource_velocity, panel_linsource_stream
 
 end # module JFoil

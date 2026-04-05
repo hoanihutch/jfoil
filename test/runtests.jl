@@ -6,4 +6,5 @@ using Test
     include("test_spline.jl")
     include("test_naca.jl")
     include("test_geometry.jl")
+    include("test_panels.jl")
 end
