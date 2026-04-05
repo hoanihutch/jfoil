@@ -9,4 +9,5 @@ using Test
     include("test_panels.jl")
     include("test_thermo.jl")
     include("test_inviscid.jl")
+    include("test_closures.jl")
 end
