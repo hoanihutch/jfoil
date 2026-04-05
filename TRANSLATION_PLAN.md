@@ -4,6 +4,25 @@ Translate mfoil (Python) to Julia function-by-function, ordered by dependency.
 
 Primary reference: `original/mfoil.py`. Cross-reference: `original/mfoil.m`.
 
+## Current Progress
+
+| Phase | Description | Progress |
+|-------|-------------|----------|
+| 0 | Data Structures & Utilities | 4/4 |
+| 1 | Geometry & Paneling | 12/12 |
+| 2 | Panel Influence Functions | 6/6 |
+| 3 | Inviscid Solver | 11/11 |
+| 4 | Closure Relations | 27/27 |
+| 5 | BL Residuals & Initialization | 0/9 |
+| 6 | Viscous Matrices & Coupling | 0/6 |
+| 7 | Coupled Solver | 0/8 |
+| 8 | Post-Processing & Polish | 0/6 |
+| **Total** | | **60/89** |
+
+**Next step:** Phase 5 — boundary layer residuals and initialization in `src/boundary_layer.jl`.
+
+**Note:** `rebuild_isol!` in `src/inviscid.jl` calls `identify_surfaces!` and `calc_ue_m!` (Phase 6) which are not yet defined. This will error if the viscous+redowake path is triggered before Phase 6 is complete.
+
 ## Workflow (every step)
 
 ```
@@ -22,10 +41,10 @@ Foundation that everything else depends on.
 
 | Step | Function | Description | Status |
 |------|----------|-------------|--------|
-| 0.1 | `Geom, Panel, Oper, Isol, Vsol, Glob, Post, Param, Mfoil` | All mutable structs + default constructors | [ ] |
-| 0.2 | `vprint` | Conditional printing | [ ] |
-| 0.3 | `norm2` | 2-norm of 2-vector | [ ] |
-| 0.4 | `dist` | Distance between two points | [ ] |
+| 0.1 | `Geom, Panel, Oper, Isol, Vsol, Glob, Post, Param, Mfoil` | All mutable structs + default constructors | [x] |
+| 0.2 | `vprint` | Conditional printing | [x] |
+| 0.3 | `norm2` | 2-norm of 2-vector | [x] |
+| 0.4 | `dist` | Distance between two points | [x] |
 
 **Notes:**
 - Julia has built-in `sind`, `cosd`, `atan(y,x)` — no translation needed
@@ -37,18 +56,18 @@ Foundation that everything else depends on.
 
 | Step | Function | Deps | Description | Status |
 |------|----------|------|-------------|--------|
-| 1.1 | `naca_points` | — | Generate NACA 4/5-digit coordinates | [ ] |
-| 1.2 | `set_coords` | — | Set geometry from coordinate array | [ ] |
-| 1.3 | `quadseg` | — | Quadrature points/weights (constants) | [ ] |
-| 1.4 | `spline2d` | `norm2`, `quadseg` | 2D parametric spline with arclength | [ ] |
-| 1.5 | `splineval` | `spline2d` | Evaluate spline at parameter values | [ ] |
-| 1.6 | `splinetan` | `spline2d` | Spline tangent at parameter values | [ ] |
-| 1.7 | `spline_curvature` | `spline2d`, `splineval`, `splinetan`, `quadseg` | Curvature-adaptive point distribution | [ ] |
-| 1.8 | `space_geom` | — | Geometric spacing solver | [ ] |
-| 1.9 | `TE_info` | `norm2` | Trailing edge geometry | [ ] |
-| 1.10 | `panel_info` | `norm2`, `dist` | Panel geometry (angles, distances) | [ ] |
-| 1.11 | `clear_solution` | structs | Reset all solution fields | [ ] |
-| 1.12 | `make_panels` | `spline_curvature`, `clear_solution` | Create panel mesh from geometry | [ ] |
+| 1.1 | `naca_points` | — | Generate NACA 4/5-digit coordinates | [x] |
+| 1.2 | `set_coords` | — | Set geometry from coordinate array | [x] |
+| 1.3 | `quadseg` | — | Quadrature points/weights (constants) | [x] |
+| 1.4 | `spline2d` | `norm2`, `quadseg` | 2D parametric spline with arclength | [x] |
+| 1.5 | `splineval` | `spline2d` | Evaluate spline at parameter values | [x] |
+| 1.6 | `splinetan` | `spline2d` | Spline tangent at parameter values | [x] |
+| 1.7 | `spline_curvature` | `spline2d`, `splineval`, `splinetan`, `quadseg` | Curvature-adaptive point distribution | [x] |
+| 1.8 | `space_geom` | — | Geometric spacing solver | [x] |
+| 1.9 | `TE_info` | `norm2` | Trailing edge geometry | [x] |
+| 1.10 | `panel_info` | `norm2`, `dist` | Panel geometry (angles, distances) | [x] |
+| 1.11 | `clear_solution` | structs | Reset all solution fields | [x] |
+| 1.12 | `make_panels` | `spline_curvature`, `clear_solution` | Create panel mesh from geometry | [x] |
 
 **Notes:**
 - Python uses `scipy.interpolate.CubicSpline` — Julia equivalent: `Interpolations.jl` or manual cubic spline
@@ -63,12 +82,12 @@ All pure functions, depend only on `panel_info`.
 
 | Step | Function | Description | Status |
 |------|----------|-------------|--------|
-| 2.1 | `panel_linvortex_stream` | Linear vortex panel streamfunction | [ ] |
-| 2.2 | `panel_linvortex_velocity` | Linear vortex panel velocity | [ ] |
-| 2.3 | `panel_constsource_stream` | Constant source panel streamfunction | [ ] |
-| 2.4 | `panel_constsource_velocity` | Constant source panel velocity | [ ] |
-| 2.5 | `panel_linsource_stream` | Linear source panel streamfunction | [ ] |
-| 2.6 | `panel_linsource_velocity` | Linear source panel velocity | [ ] |
+| 2.1 | `panel_linvortex_stream` | Linear vortex panel streamfunction | [x] |
+| 2.2 | `panel_linvortex_velocity` | Linear vortex panel velocity | [x] |
+| 2.3 | `panel_constsource_stream` | Constant source panel streamfunction | [x] |
+| 2.4 | `panel_constsource_velocity` | Constant source panel velocity | [x] |
+| 2.5 | `panel_linsource_stream` | Linear source panel streamfunction | [x] |
+| 2.6 | `panel_linsource_velocity` | Linear source panel velocity | [x] |
 
 **Notes:**
 - These implement the analytical formulas from the PDF Appendix A (Eqs. 37-44)
@@ -81,17 +100,17 @@ All pure functions, depend only on `panel_info`.
 
 | Step | Function | Deps | Description | Status |
 |------|----------|------|-------------|--------|
-| 3.1 | `init_thermo` | `Param` | Set thermodynamic params from Ma | [ ] |
-| 3.2 | `get_cp` | — | Pressure coefficient + linearization | [ ] |
-| 3.3 | `get_uk` | — | Karman-Tsien speed + linearization | [ ] |
-| 3.4 | `build_gamma` | `TE_info`, `panel_linvortex_stream`, `panel_constsource_stream` | Build AIC, solve for vortex strengths | [ ] |
-| 3.5 | `get_ueinv` | `Isol` | Inviscid edge velocity at current alpha | [ ] |
-| 3.6 | `get_ueinvref` | `Isol` | Reference ue at 0 and 90 deg | [ ] |
-| 3.7 | `stagpoint_find` | `Isol`, `Panel` | Locate stagnation, compute xi | [ ] |
-| 3.8 | `inviscid_velocity` | `TE_info`, `panel_linvortex_velocity`, `panel_constsource_velocity` | Velocity at arbitrary point | [ ] |
-| 3.9 | `build_wake` | `space_geom`, `inviscid_velocity`, `norm2` | Trace wake streamline | [ ] |
-| 3.10 | `calc_force` | `get_ueinv`, `get_cp`, `get_uk`, + viscous closures | Compute cl, cm, cd | [ ] |
-| 3.11 | `solve_inviscid` | `init_thermo`, `build_gamma`, `calc_force` | Top-level inviscid solve | [ ] |
+| 3.1 | `init_thermo` | `Param` | Set thermodynamic params from Ma | [x] |
+| 3.2 | `get_cp` | — | Pressure coefficient + linearization | [x] |
+| 3.3 | `get_uk` | — | Karman-Tsien speed + linearization | [x] |
+| 3.4 | `build_gamma` | `TE_info`, `panel_linvortex_stream`, `panel_constsource_stream` | Build AIC, solve for vortex strengths | [x] |
+| 3.5 | `get_ueinv` | `Isol` | Inviscid edge velocity at current alpha | [x] |
+| 3.6 | `get_ueinvref` | `Isol` | Reference ue at 0 and 90 deg | [x] |
+| 3.7 | `stagpoint_find` | `Isol`, `Panel` | Locate stagnation, compute xi | [x] |
+| 3.8 | `inviscid_velocity` | `TE_info`, `panel_linvortex_velocity`, `panel_constsource_velocity` | Velocity at arbitrary point | [x] |
+| 3.9 | `build_wake` | `space_geom`, `inviscid_velocity`, `norm2` | Trace wake streamline | [x] |
+| 3.10 | `calc_force` | `get_ueinv`, `get_cp`, `get_uk`, + viscous closures | Compute cl, cm, cd | [x] |
+| 3.11 | `solve_inviscid` | `init_thermo`, `build_gamma`, `calc_force` | Top-level inviscid solve | [x] |
 
 **Notes:**
 - `build_gamma` creates AIC matrix (N+1)x(N+1) — `# NOTE: sparse candidate`
@@ -108,33 +127,33 @@ All pure functions, depend only on `panel_info`.
 
 | Step | Function | Deps | Description | Status |
 |------|----------|------|-------------|--------|
-| 4.1 | `get_H` | — | Shape parameter delta*/theta | [ ] |
-| 4.2 | `get_Hw` | — | Wake gap shape parameter | [ ] |
-| 4.3 | `get_uq` | — | Equilibrium velocity gradient | [ ] |
-| 4.4 | `upwind` | — | Upwind averaging utility | [ ] |
-| 4.5 | `get_Mach2` | `get_uk` | Local Mach squared | [ ] |
-| 4.6 | `get_Hk` | `get_H`, `get_Mach2` | Kinematic shape parameter | [ ] |
-| 4.7 | `get_Ret` | `get_Mach2`, `get_uk` | Re_theta | [ ] |
-| 4.8 | `get_upw` | `get_Hk` | Upwind factor | [ ] |
-| 4.9 | `get_Hs` | `get_Hk`, `get_Ret` | H* kinetic energy shape param | [ ] |
-| 4.10 | `get_Hss` | `get_Mach2`, `get_Hk` | H** density shape param | [ ] |
-| 4.11 | `get_cf` | `get_Hk`, `get_Ret`, `get_Mach2` | Skin friction | [ ] |
-| 4.12 | `get_de` | `get_Hk` | BL thickness | [ ] |
-| 4.13 | `get_rho` | `get_Mach2` | Density | [ ] |
-| 4.14 | `get_Us` | `get_Hs`, `get_Hk`, `get_H` | Wall slip velocity | [ ] |
-| 4.15 | `get_damp` | `get_Hk`, `get_Ret` | Amplification rate | [ ] |
-| 4.16 | `get_cfxt` | `get_cf` | cf * x/theta | [ ] |
-| 4.17 | `get_cfutstag` | `get_Hk` | cf*ue*theta at stagnation | [ ] |
-| 4.18 | `get_cdutstag` | `get_Hk` | cDi*ue*theta at stagnation | [ ] |
-| 4.19 | `get_cDi_lam` | `get_Hk`, `get_Ret` | Laminar dissipation | [ ] |
-| 4.20 | `get_cDi_lamwake` | `get_Hk`, `get_Hs`, `get_Ret` | Laminar wake dissipation | [ ] |
-| 4.21 | `get_cDi_outer` | `get_Hs`, `get_Us` | Outer dissipation | [ ] |
-| 4.22 | `get_cDi_lamstress` | `get_Hs`, `get_Us`, `get_Ret` | Laminar stress dissipation | [ ] |
-| 4.23 | `get_cDi_turbwall` | `get_cf`, `get_Hk`, `get_Hs`, `get_Us`, `get_Ret` | Turbulent wall dissipation | [ ] |
-| 4.24 | `get_cDi` | all cDi sub-functions | Total dissipation | [ ] |
-| 4.25 | `get_cDixt` | `get_cDi` | cDi * x/theta | [ ] |
-| 4.26 | `get_cteq` | `get_Hk`, `get_Hs`, `get_H`, `get_Ret`, `get_Us` | Equilibrium ctau | [ ] |
-| 4.27 | `get_cttr` | `get_cteq`, `get_Hk` | Transition ctau | [ ] |
+| 4.1 | `get_H` | — | Shape parameter delta*/theta | [x] |
+| 4.2 | `get_Hw` | — | Wake gap shape parameter | [x] |
+| 4.3 | `get_uq` | — | Equilibrium velocity gradient | [x] |
+| 4.4 | `upwind` | — | Upwind averaging utility | [x] |
+| 4.5 | `get_Mach2` | `get_uk` | Local Mach squared | [x] |
+| 4.6 | `get_Hk` | `get_H`, `get_Mach2` | Kinematic shape parameter | [x] |
+| 4.7 | `get_Ret` | `get_Mach2`, `get_uk` | Re_theta | [x] |
+| 4.8 | `get_upw` | `get_Hk` | Upwind factor | [x] |
+| 4.9 | `get_Hs` | `get_Hk`, `get_Ret` | H* kinetic energy shape param | [x] |
+| 4.10 | `get_Hss` | `get_Mach2`, `get_Hk` | H** density shape param | [x] |
+| 4.11 | `get_cf` | `get_Hk`, `get_Ret`, `get_Mach2` | Skin friction | [x] |
+| 4.12 | `get_de` | `get_Hk` | BL thickness | [x] |
+| 4.13 | `get_rho` | `get_Mach2` | Density | [x] |
+| 4.14 | `get_Us` | `get_Hs`, `get_Hk`, `get_H` | Wall slip velocity | [x] |
+| 4.15 | `get_damp` | `get_Hk`, `get_Ret` | Amplification rate | [x] |
+| 4.16 | `get_cfxt` | `get_cf` | cf * x/theta | [x] |
+| 4.17 | `get_cfutstag` | `get_Hk` | cf*ue*theta at stagnation | [x] |
+| 4.18 | `get_cdutstag` | `get_Hk` | cDi*ue*theta at stagnation | [x] |
+| 4.19 | `get_cDi_lam` | `get_Hk`, `get_Ret` | Laminar dissipation | [x] |
+| 4.20 | `get_cDi_lamwake` | `get_Hk`, `get_Hs`, `get_Ret` | Laminar wake dissipation | [x] |
+| 4.21 | `get_cDi_outer` | `get_Hs`, `get_Us` | Outer dissipation | [x] |
+| 4.22 | `get_cDi_lamstress` | `get_Hs`, `get_Us`, `get_Ret` | Laminar stress dissipation | [x] |
+| 4.23 | `get_cDi_turbwall` | `get_cf`, `get_Hk`, `get_Hs`, `get_Us`, `get_Ret` | Turbulent wall dissipation | [x] |
+| 4.24 | `get_cDi` | all cDi sub-functions | Total dissipation | [x] |
+| 4.25 | `get_cDixt` | `get_cDi` | cDi * x/theta | [x] |
+| 4.26 | `get_cteq` | `get_Hk`, `get_Hs`, `get_H`, `get_Ret`, `get_Us` | Equilibrium ctau | [x] |
+| 4.27 | `get_cttr` | `get_cteq`, `get_Hk` | Transition ctau | [x] |
 
 **Notes:**
 - Every function returns (value, value_U) where value_U is the Jacobian w.r.t. state U
