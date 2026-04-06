@@ -416,3 +416,163 @@ function residual_transition(M::Mfoil, param, x::AbstractVector, U::AbstractMatr
 
     return R, R_U, R_x
 end
+
+
+#-------------------------------------------------------------------------------
+function store_transition!(M::Mfoil, si::Int, i::Int)
+    # Stores xi and x transition locations using current M.vsol.xt
+    # INPUT
+    #   si : side number (1=lower, 2=upper) — Julia 1-based
+    #   i  : station number within the surface (1-based local index)
+    # OUTPUT
+    #   M.vsol.Xt stores the transition location s and x values
+
+    xt = M.vsol.xt
+    i0 = M.vsol.Is[si][i-1]  # pre-transition node (global index)
+    i1 = M.vsol.Is[si][i]    # post-transition node (global index)
+    xi0 = M.isol.xi[i0]
+    xi1 = M.isol.xi[i1]
+    @assert (i0 <= M.foil.N) && (i1 <= M.foil.N) "Can only store transition on airfoil"
+    x0 = M.foil.x[1, i0]  # x-coordinate at pre-transition node
+    x1 = M.foil.x[1, i1]  # x-coordinate at post-transition node
+    if (xt < xi0) || (xt > xi1)
+        vprint(M.param, 1, @sprintf("Warning: transition (%.3f) off interval (%.3f,%.3f)!", xt, xi0, xi1))
+    end
+    M.vsol.Xt[si, 1] = xt  # xi location
+    M.vsol.Xt[si, 2] = x0 + (xt - xi0) / (xi1 - xi0) * (x1 - x0)  # x location
+    slu = ["lower", "upper"]
+    vprint(M.param, 1, @sprintf("  transition on %s side at x=%.5f", slu[si], M.vsol.Xt[si, 2]))
+end
+
+
+#-------------------------------------------------------------------------------
+function march_amplification!(M::Mfoil, si::Int)
+    # Marches amplification equation on surface si
+    # INPUT
+    #   si : surface number (1=lower, 2=upper) — Julia 1-based
+    # OUTPUT
+    #   ilam : local index of last laminar station before transition (1-based)
+    #   M.glob.U : updated with amp factor at each (new) laminar station
+
+    Is = M.vsol.Is[si]       # surface point indices (global, 1-based)
+    N = length(Is)
+    param = build_param(M, si)
+    U = M.glob.U[:, Is]      # states (4 x N view copy)
+    turb = M.vsol.turb[Is]   # turbulent station flags
+
+    # no amplification at first station
+    U[3, 1] = 0.0
+    param.turb = false; param.wake = false
+
+    i = 2  # start from second station (1-based)
+    while i <= N
+        @views U1 = U[:, i-1]
+        U2 = U[:, i] |> copy  # copy so we can modify sa
+        if turb[i]; U2[3] = U1[3] * 1.01; end  # initialize amp if turb
+        dx = M.isol.xi[Is[i]] - M.isol.xi[Is[i-1]]
+
+        nNewton = 20
+        iNewton = 0
+        for iN in 0:nNewton-1
+            iNewton = iN
+            # amplification rate, averaged
+            damp1, damp1_U1 = get_damp(U1, param)
+            damp2, damp2_U2 = get_damp(U2, param)
+            damp, damp_U = upwind(0.5, 0, damp1, damp1_U1, damp2, damp2_U2)
+
+            Ramp = U2[3] - U1[3] - damp * dx
+
+            if iNewton > 11
+                vprint(param, 3, @sprintf("i=%d, iNewton=%d, sa = [%.5e, %.5e], damp = %.5e, Ramp = %.5e",
+                    i, iNewton, U1[3], U2[3], damp, Ramp))
+            end
+
+            if abs(Ramp) < 1e-12; break; end  # converged
+
+            Ramp_U = [0, 0, -1, 0, 0, 0, 1, 0] .- damp_U .* dx
+            dU = -Ramp / Ramp_U[7]  # index 7 = d/d(U2[3]) in Julia 1-based
+            omega = 1.0; dmax = 0.5 * (1.01 - iNewton / nNewton)
+            if abs(dU) > dmax; omega = dmax / abs(dU); end
+            U2[3] += omega * dU
+        end
+
+        if iNewton >= nNewton - 1
+            vprint(param, 1, "march amp Newton unconverged!")
+        end
+
+        # check for transition
+        if U2[3] > param.ncrit
+            vprint(param, 2, @sprintf("  march_amplification (si,i=%d,%d): %.5e is above critical.", si, i, U2[3]))
+            break
+        else
+            M.glob.U[3, Is[i]] = U2[3]  # store in global state
+            U[3, i] = U2[3]
+        end
+
+        i += 1
+    end
+
+    return i - 1  # last laminar station (1-based local index)
+end
+
+
+#-------------------------------------------------------------------------------
+function update_transition!(M::Mfoil)
+    # Updates transition location using current state
+    # INPUT
+    #   a valid state in M.glob.U
+    # OUTPUT
+    #   M.vsol.turb : updated with latest lam/turb flags for each node
+    #   M.glob.U    : updated with amp factor or shear stress as needed
+
+    for si in 1:2  # loop over lower/upper surfaces
+        Is = M.vsol.Is[si]
+        N = length(Is)
+
+        param = build_param(M, si)
+
+        # current last laminar station (1-based local index)
+        ilam0 = N  # default: all laminar
+        for k in 1:N
+            if M.vsol.turb[Is[k]]
+                ilam0 = k - 1
+                break
+            end
+        end
+
+        # current amp/ctau solution (so we do not change it unnecessarily)
+        sa = M.glob.U[3, Is] |> copy
+
+        # march amplification equation to get new last laminar station
+        ilam = march_amplification!(M, si)
+
+        if ilam == ilam0
+            M.glob.U[3, Is] = sa  # no change
+            continue
+        end
+
+        vprint(param, 2, @sprintf("  Update transition: last lam [%d]->[%d]", ilam0, ilam))
+
+        if ilam < ilam0
+            # transition is now earlier: fill in turb between [ilam+1, ilam0]
+            param.turb = true
+            sa0, _ = get_cttr(M.glob.U[:, Is[ilam+1]], param)
+            sa1 = (ilam0 < N) ? M.glob.U[3, Is[ilam0+1]] : sa0
+            xi = M.isol.xi[Is]
+            dx = xi[min(ilam0+1, N)] - xi[ilam+1]
+            for i in (ilam+1):ilam0
+                f = (dx == 0 || i == ilam + 1) ? 0.0 : (xi[i] - xi[ilam+1]) / dx
+                if (ilam + 1) == ilam0; f = 1.0; end
+                M.glob.U[3, Is[i]] = sa0 + f * (sa1 - sa0)
+                @assert M.glob.U[3, Is[i]] > 0 "negative ctau in update_transition"
+                M.vsol.turb[Is[i]] = true
+            end
+
+        elseif ilam > ilam0
+            # transition is now later: lam already filled in; leave turb alone
+            for i in ilam0:ilam
+                M.vsol.turb[Is[i]] = false
+            end
+        end
+    end
+end

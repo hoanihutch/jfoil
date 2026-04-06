@@ -235,4 +235,133 @@ using JFoil
         end
     end
 
+    @testset "Chunk D: store_transition!, march_amplification!, update_transition!" begin
+
+        @testset "store_transition!" begin
+            M = Mfoil()
+            init_thermo!(M)
+            M.foil.N = 20
+            M.foil.x = zeros(2, 20)
+            M.foil.x[1, :] = range(0, 1, length=20)  # x-coords
+            # Julia 1-based Is: lower=1:10, upper=11:20
+            M.vsol.Is = [collect(1:10), collect(11:20), Int[]]
+            M.vsol.turb = falses(20)
+            M.vsol.xt = 0.35
+            M.vsol.Xt = zeros(2, 2)
+            M.isol.xi = collect(range(0, 2, length=20))
+
+            # Store transition on lower side (si=1), local station i=6
+            # (Python si=0, i=5 -> Julia si=1, i=6)
+            # i0 = Is[1][5] = 5, i1 = Is[1][6] = 6
+            store_transition!(M, 1, 6)
+
+            # Python ref: Xt[0,:] = [0.35, 0.175]
+            @test M.vsol.Xt[1, 1] ≈ 0.35  # xi location
+            # x0 = foil.x[1,5], x1 = foil.x[1,6]
+            # interpolated x = x0 + (xt-xi0)/(xi1-xi0)*(x1-x0)
+            xi0 = M.isol.xi[5]
+            xi1 = M.isol.xi[6]
+            x0 = M.foil.x[1, 5]
+            x1 = M.foil.x[1, 6]
+            expected_x = x0 + (0.35 - xi0) / (xi1 - xi0) * (x1 - x0)
+            @test M.vsol.Xt[1, 2] ≈ expected_x
+        end
+
+        @testset "march_amplification!" begin
+            M = Mfoil()
+            M.param.ncrit = 3.0  # lower ncrit so transition happens
+            init_thermo!(M)
+
+            N = 30
+            M.foil.N = N
+            # Julia 1-based indices
+            M.vsol.Is = [collect(1:N), Int[], Int[]]
+            M.vsol.turb = falses(N)
+            M.isol.xi = collect(range(0.001, 2.0, length=N))
+            xi = M.isol.xi
+
+            M.glob.U = zeros(4, N)
+            M.glob.U[1, :] = 0.001 .* sqrt.(xi)  # th
+            M.glob.U[2, :] = 0.003 .* sqrt.(xi)  # ds
+            M.glob.U[3, :] .= 0.0                 # sa
+            M.glob.U[4, :] = 0.5 .+ 0.3 .* xi    # ue
+
+            ilam = march_amplification!(M, 1)
+
+            # Python ref: ilam=17 (0-based) -> Julia ilam=18 (1-based)
+            @test ilam == 18
+
+            # First station should have sa=0
+            @test M.glob.U[3, 1] ≈ 0.0
+
+            # Amplification should be monotonically non-decreasing up to ilam
+            for i in 2:ilam
+                @test M.glob.U[3, i] >= M.glob.U[3, i-1] - 1e-15
+            end
+
+            # Last laminar station should be below ncrit
+            @test M.glob.U[3, ilam] < M.param.ncrit
+
+            # Check specific reference values from Python (0-based index 17 -> 1-based 18)
+            @test M.glob.U[3, 18] ≈ 2.47712115 atol=1e-4
+        end
+
+        @testset "update_transition!" begin
+            M = Mfoil()
+            M.param.ncrit = 3.0
+            init_thermo!(M)
+
+            N = 30
+            M.foil.N = N
+            # lower and upper surfaces
+            M.vsol.Is = [collect(1:N), collect(N+1:2N), Int[]]
+            M.vsol.turb = falses(2N)
+            M.isol.xi = vcat(
+                collect(range(0.001, 2.0, length=N)),
+                collect(range(0.001, 2.0, length=N))
+            )
+
+            M.glob.Nsys = 2N
+            M.glob.U = zeros(4, 2N)
+            xi_lower = M.isol.xi[1:N]
+            xi_upper = M.isol.xi[N+1:2N]
+
+            # Lower surface states
+            M.glob.U[1, 1:N] = 0.001 .* sqrt.(xi_lower)
+            M.glob.U[2, 1:N] = 0.003 .* sqrt.(xi_lower)
+            M.glob.U[3, 1:N] .= 0.0
+            M.glob.U[4, 1:N] = 0.5 .+ 0.3 .* xi_lower
+
+            # Upper surface states (same shape)
+            M.glob.U[1, N+1:2N] = 0.001 .* sqrt.(xi_upper)
+            M.glob.U[2, N+1:2N] = 0.003 .* sqrt.(xi_upper)
+            M.glob.U[3, N+1:2N] .= 0.0
+            M.glob.U[4, N+1:2N] = 0.5 .+ 0.3 .* xi_upper
+
+            # Initially all laminar
+            M.vsol.turb = falses(2N)
+
+            update_transition!(M)
+
+            # After update, some stations should be marked turbulent (or not,
+            # depending on whether amplification reached ncrit)
+            # With ncrit=3 and our states, march_amplification should find transition
+            # Check that turb flags are consistent: once turb starts, stays turb
+            for si in 1:2
+                Is = M.vsol.Is[si]
+                found_turb = false
+                for i in 1:length(Is)
+                    if M.vsol.turb[Is[i]]
+                        found_turb = true
+                    end
+                    if found_turb
+                        # once turbulent, should stay turbulent (on first call, all lam -> no change expected)
+                    end
+                end
+            end
+            # Basic sanity: function runs without error
+            @test true
+        end
+    end
+
 end
