@@ -14,14 +14,12 @@ Primary reference: `original/mfoil.py`. Cross-reference: `original/mfoil.m`.
 | 3 | Inviscid Solver | 11/11 |
 | 4 | Closure Relations | 27/27 |
 | 5 | BL Residuals & Initialization | 9/9 |
-| 6 | Viscous Matrices & Coupling | 0/6 |
+| 6 | Viscous Matrices & Coupling | 6/6 |
 | 7 | Coupled Solver | 0/8 |
 | 8 | Post-Processing & Polish | 0/6 |
-| **Total** | | **69/89** |
+| **Total** | | **75/89** |
 
-**Next step:** Phase 6 — viscous matrices and coupling in `src/coupling.jl`.
-
-**Note:** `rebuild_isol!` in `src/inviscid.jl` calls `identify_surfaces!` and `calc_ue_m!` (Phase 6) which are not yet defined. This will error if the viscous+redowake path is triggered before Phase 6 is complete.
+**Next step:** Phase 7 — coupled solver in `src/solver.jl`.
 
 ## Workflow (every step)
 
@@ -186,12 +184,12 @@ All pure functions, depend only on `panel_info`.
 
 | Step | Function | Deps | Description | Status |
 |------|----------|------|-------------|--------|
-| 6.1 | `identify_surfaces` | — | Split airfoil into lower/upper/wake | [ ] |
-| 6.2 | `set_wake_gap` | `TE_info` | TE dead-air thickness | [ ] |
-| 6.3 | `calc_ue_m` | panel influence fns | Build ue-mass sensitivity D matrix | [ ] |
-| 6.4 | `rebuild_ue_m` | — | Rebuild after stagnation moves | [ ] |
-| 6.5 | `wake_sys` | `TE_info`, `get_cttr` | Wake first-node residual | [ ] |
-| 6.6 | `wake_init` | `wake_sys` | Initialize first wake point | [ ] |
+| 6.1 | `identify_surfaces` | — | Split airfoil into lower/upper/wake | [x] |
+| 6.2 | `set_wake_gap` | `TE_info` | TE dead-air thickness | [x] |
+| 6.3 | `calc_ue_m` | panel influence fns | Build ue-mass sensitivity D matrix | [x] |
+| 6.4 | `rebuild_ue_m` | — | Rebuild after stagnation moves | [x] |
+| 6.5 | `wake_sys` | `TE_info`, `get_cttr` | Wake first-node residual | [x] |
+| 6.6 | `wake_init` | `wake_sys` | Initialize first wake point | [x] |
 
 **Notes:**
 - `calc_ue_m` builds D matrix (N+Nw)x(N+Nw) — `# NOTE: sparse candidate`

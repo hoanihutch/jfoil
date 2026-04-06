@@ -11,4 +11,5 @@ using Test
     include("test_inviscid.jl")
     include("test_closures.jl")
     include("test_boundary_layer.jl")
+    include("test_coupling.jl")
 end
