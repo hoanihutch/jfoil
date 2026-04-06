@@ -153,7 +153,7 @@ end
 
 Upwind average of two scalars. Returns (f, f_U) where f_U is 1x8.
 """
-function upwind(upw::Real, upw_U::AbstractVector, f1::Real, f1_U1::AbstractVector, f2::Real, f2_U2::AbstractVector)
+function upwind(upw::Real, upw_U, f1::Real, f1_U1::AbstractVector, f2::Real, f2_U2::AbstractVector)
     f = (1.0 - upw) * f1 + upw * f2
     f_U = (-upw_U) .* f1 .+ upw_U .* f2 .+ vcat((1.0 - upw) .* f1_U1, upw .* f2_U2)
     return f, f_U
