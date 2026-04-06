@@ -296,3 +296,123 @@ function residual_station(param, x::AbstractVector, Uin::AbstractMatrix, Aux::Ab
 
     return R, R_U, R_x
 end
+
+
+#-------------------------------------------------------------------------------
+function residual_transition(M::Mfoil, param, x::AbstractVector, U::AbstractMatrix, Aux::AbstractVector)
+    # Calculates the combined lam + turb residual for a transition station
+    # INPUT
+    #   param : parameter structure
+    #   x     : 2-vector [x1, x2], xi values at the points
+    #   U     : 4x2 matrix [U1 U2], states at the points
+    #   Aux   : 2-vector, auxiliary data at the points
+    # OUTPUT
+    #   R     : 3-vector, transition residual
+    #   R_U   : 3x8 Jacobian w.r.t. [U1; U2]
+    #   R_x   : 3x2 Jacobian w.r.t. [x1, x2]
+    # DETAILS
+    #   U1 should be laminar; U2 should be turbulent
+    #   Calculates and linearizes the transition location in the process
+
+    # states
+    @views U1 = U[:, 1]; U2 = U[:, 2]
+    sa = [U[3, 1], U[3, 2]]
+    I1 = 1:4; I2 = 5:8; Z = zeros(4)
+
+    # interval
+    x1 = x[1]; x2 = x[2]; dx = x2 - x1
+
+    # determine transition location (xt) using amplification equation
+    xt = x1 + 0.5 * dx  # guess
+    ncrit = param.ncrit
+    nNewton = 20
+    vprint(param, 3, "  Transition interval = [$(x1), $(x2)]")
+
+    for iNewton in 0:nNewton-1
+        w2 = (xt - x1) / dx; w1 = 1.0 - w2
+        Ut = w1 * U1 + w2 * U2; Ut_xt = (U2 - U1) / dx
+        Ut[3] = ncrit; Ut_xt[3] = 0.0
+        damp1, damp1_U1 = get_damp(U1, param)
+        dampt, dampt_Ut = get_damp(Ut, param); dampt_Ut[3] = 0.0
+        Rxt = ncrit - sa[1] - 0.5 * (xt - x1) * (damp1 + dampt)
+        Rxt_xt = -0.5 * (damp1 + dampt) - 0.5 * (xt - x1) * dot(dampt_Ut, Ut_xt)
+        dxt = -Rxt / Rxt_xt
+        vprint(param, 4, "   Transition: iNewton,Rxt,xt = $(iNewton),$(Rxt),$(xt)")
+        dmax = 0.2 * dx * (1.1 - iNewton / nNewton)
+        if abs(dxt) > dmax; dxt = dxt * dmax / abs(dxt); end
+        if abs(Rxt) < 1e-10; break; end
+        if iNewton < nNewton; xt += dxt; end
+    end
+
+    M.vsol.xt = xt  # save transition location
+
+    # prepare for xt linearizations
+    w2 = (xt - x1) / dx; w1 = 1.0 - w2
+    Ut = w1 * U1 + w2 * U2; Ut_xt = (U2 - U1) / dx
+    Ut[3] = ncrit; Ut_xt[3] = 0.0
+    damp1, damp1_U1 = get_damp(U1, param)
+    dampt, dampt_Ut = get_damp(Ut, param); dampt_Ut[3] = 0.0
+
+    Rxt_U = -0.5 * (xt - x1) * vcat(damp1_U1 + dampt_Ut * w1, dampt_Ut * w2)
+    Rxt_U[3] -= 1.0
+    Rxt_xt = -0.5 * (damp1 + dampt) - 0.5 * (xt - x1) * dot(dampt_Ut, Ut_xt)
+
+    Ut_x1 = (U2 - U1) * (w2 - 1) / dx; Ut_x2 = (U2 - U1) * (-w2) / dx
+    Ut_x1[3] = 0.0; Ut_x2[3] = 0.0
+    Rxt_x1 = 0.5 * (damp1 + dampt) - 0.5 * (xt - x1) * dot(dampt_Ut, Ut_x1)
+    Rxt_x2 = -0.5 * (xt - x1) * dot(dampt_Ut, Ut_x2)
+
+    # sensitivity of xt w.r.t. U,x from Rxt(xt,U,x) = 0 constraint
+    xt_U = -Rxt_U / Rxt_xt; xt_U1 = xt_U[I1]; xt_U2 = xt_U[I2]
+    xt_x1 = -Rxt_x1 / Rxt_xt; xt_x2 = -Rxt_x2 / Rxt_xt
+
+    # include derivatives w.r.t. xt in Ut_x1 and Ut_x2
+    Ut_x1 = Ut_x1 + Ut_xt * xt_x1
+    Ut_x2 = Ut_x2 + Ut_xt * xt_x2
+
+    # sensitivity of Ut w.r.t. U1 and U2
+    Ut_U1 = w1 * I + (U2 - U1) * xt_U1' / dx  # 4x4
+    Ut_U2 = w2 * I + (U2 - U1) * xt_U2' / dx  # 4x4
+
+    # laminar and turbulent states at transition
+    Utl = copy(Ut); Utl_U1 = copy(Ut_U1); Utl_U2 = copy(Ut_U2)
+    Utl_x1 = copy(Ut_x1); Utl_x2 = copy(Ut_x2)
+    Utl[3] = ncrit; Utl_U1[3, :] .= 0.0; Utl_U2[3, :] .= 0.0
+    Utl_x1[3] = 0.0; Utl_x2[3] = 0.0
+
+    Utt = copy(Ut); Utt_U1 = copy(Ut_U1); Utt_U2 = copy(Ut_U2)
+    Utt_x1 = copy(Ut_x1); Utt_x2 = copy(Ut_x2)
+
+    # parameter structure for transition
+    param_tr = build_param(M, 1)
+
+    # set turbulent shear coefficient, sa, in Utt
+    param_tr.turb = true
+    cttr, cttr_Ut = get_cttr(Ut, param_tr)
+    Utt[3] = cttr
+    Utt_U1[3, :] = cttr_Ut' * Ut_U1
+    Utt_U2[3, :] = cttr_Ut' * Ut_U2
+    Utt_x1[3] = dot(cttr_Ut, Ut_x1)
+    Utt_x2[3] = dot(cttr_Ut, Ut_x2)
+
+    # laminar/turbulent residuals and linearizations
+    param_tr.turb = false
+    Rl, Rl_U, Rl_x = residual_station(param_tr, [x1, xt], hcat(U1, Utl), Aux)
+    Rl_U1 = Rl_U[:, I1]; Rl_Utl = Rl_U[:, I2]
+
+    param_tr.turb = true
+    Rt, Rt_U, Rt_x = residual_station(param_tr, [xt, x2], hcat(Utt, U2), Aux)
+    Rt_Utt = Rt_U[:, I1]; Rt_U2 = Rt_U[:, I2]
+
+    # combined residual and linearization
+    R = Rl + Rt
+    R_U1 = Rl_U1 + Rl_Utl * Utl_U1 + Rl_x[:, 2] * xt_U1' + Rt_Utt * Utt_U1 + Rt_x[:, 1] * xt_U1'
+    R_U2 = Rl_Utl * Utl_U2 + Rl_x[:, 2] * xt_U2' + Rt_Utt * Utt_U2 + Rt_U2 + Rt_x[:, 1] * xt_U2'
+    R_U = hcat(R_U1, R_U2)
+
+    R_x1 = Rl_x[:, 1] + Rl_x[:, 2] * xt_x1 + Rt_x[:, 1] * xt_x1 + Rl_Utl * Utl_x1 + Rt_Utt * Utt_x1
+    R_x2 = Rt_x[:, 2] + Rl_x[:, 2] * xt_x2 + Rt_x[:, 1] * xt_x2 + Rl_Utl * Utl_x2 + Rt_Utt * Utt_x2
+    R_x = hcat(R_x1, R_x2)
+
+    return R, R_U, R_x
+end
