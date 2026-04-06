@@ -45,5 +45,6 @@ export get_cDi, get_cDi_turbwall, get_cDi_lam, get_cDi_lamwake, get_cDi_outer
 export get_cDi_lamstress, get_cDixt, get_cdutstag, get_cteq, get_cttr
 export build_param, station_param!
 export stagnation_state, thwaites_init
+export residual_station
 
 end # module JFoil
