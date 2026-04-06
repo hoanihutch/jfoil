@@ -24,6 +24,9 @@ include("closures_shape.jl")
 include("closures_friction.jl")
 include("closures_dissipation.jl")
 
+# Phase 5: Boundary layer
+include("boundary_layer.jl")
+
 # Exports
 export Geom, Panel, Oper, Isol, Vsol, Glob, Post, Param, Mfoil
 export vprint, norm2, dist
@@ -40,5 +43,7 @@ export get_H, get_Hw, get_Mach2, get_Hk, get_Hs, get_Hss, get_Ret, get_rho, get_
 export get_cf, get_cfxt, get_cfutstag, get_Us, get_upw, upwind, get_uq, get_damp
 export get_cDi, get_cDi_turbwall, get_cDi_lam, get_cDi_lamwake, get_cDi_outer
 export get_cDi_lamstress, get_cDixt, get_cdutstag, get_cteq, get_cttr
+export build_param, station_param!
+export stagnation_state, thwaites_init
 
 end # module JFoil
