@@ -10,4 +10,5 @@ using Test
     include("test_thermo.jl")
     include("test_inviscid.jl")
     include("test_closures.jl")
+    include("test_boundary_layer.jl")
 end
