@@ -13,13 +13,13 @@ Primary reference: `original/mfoil.py`. Cross-reference: `original/mfoil.m`.
 | 2 | Panel Influence Functions | 6/6 |
 | 3 | Inviscid Solver | 11/11 |
 | 4 | Closure Relations | 27/27 |
-| 5 | BL Residuals & Initialization | 0/9 |
+| 5 | BL Residuals & Initialization | 9/9 |
 | 6 | Viscous Matrices & Coupling | 0/6 |
 | 7 | Coupled Solver | 0/8 |
 | 8 | Post-Processing & Polish | 0/6 |
-| **Total** | | **60/89** |
+| **Total** | | **69/89** |
 
-**Next step:** Phase 5 — boundary layer residuals and initialization in `src/boundary_layer.jl`.
+**Next step:** Phase 6 — viscous matrices and coupling in `src/coupling.jl`.
 
 **Note:** `rebuild_isol!` in `src/inviscid.jl` calls `identify_surfaces!` and `calc_ue_m!` (Phase 6) which are not yet defined. This will error if the viscous+redowake path is triggered before Phase 6 is complete.
 
@@ -166,15 +166,15 @@ All pure functions, depend only on `panel_info`.
 
 | Step | Function | Deps | Description | Status |
 |------|----------|------|-------------|--------|
-| 5.1 | `build_param` | structs | Create parameter struct for a surface | [ ] |
-| 5.2 | `station_param` | structs | Update param for specific station | [ ] |
-| 5.3 | `stagnation_state` | — | Extrapolate state to stagnation | [ ] |
-| 5.4 | `thwaites_init` | — | Thwaites laminar init correlation | [ ] |
-| 5.5 | `residual_station` | many get_* | BL residual at a station | [ ] |
-| 5.6 | `residual_transition` | `residual_station`, `get_damp`, `get_cttr` | Transition station residual | [ ] |
-| 5.7 | `store_transition` | — | Store transition location | [ ] |
-| 5.8 | `march_amplification` | `get_damp`, `upwind` | March amplification equation | [ ] |
-| 5.9 | `update_transition` | `march_amplification`, `get_cttr` | Find new transition | [ ] |
+| 5.1 | `build_param` | structs | Create parameter struct for a surface | [x] |
+| 5.2 | `station_param` | structs | Update param for specific station | [x] |
+| 5.3 | `stagnation_state` | — | Extrapolate state to stagnation | [x] |
+| 5.4 | `thwaites_init` | — | Thwaites laminar init correlation | [x] |
+| 5.5 | `residual_station` | many get_* | BL residual at a station | [x] |
+| 5.6 | `residual_transition` | `residual_station`, `get_damp`, `get_cttr` | Transition station residual | [x] |
+| 5.7 | `store_transition` | — | Store transition location | [x] |
+| 5.8 | `march_amplification` | `get_damp`, `upwind` | March amplification equation | [x] |
+| 5.9 | `update_transition` | `march_amplification`, `get_cttr` | Find new transition | [x] |
 
 **Notes:**
 - `residual_station` is the most complex — calls ~15 closure functions
