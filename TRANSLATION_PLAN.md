@@ -15,11 +15,11 @@ Primary reference: `original/mfoil.py`. Cross-reference: `original/mfoil.m`.
 | 4 | Closure Relations | 27/27 |
 | 5 | BL Residuals & Initialization | 9/9 |
 | 6 | Viscous Matrices & Coupling | 6/6 |
-| 7 | Coupled Solver | 0/8 |
+| 7 | Coupled Solver | 8/8 |
 | 8 | Post-Processing & Polish | 0/6 |
-| **Total** | | **75/89** |
+| **Total** | | **83/89** |
 
-**Next step:** Phase 7 — coupled solver in `src/solver.jl`.
+**Next step:** Phase 8 — post-processing in `src/postprocess.jl`.
 
 ## Workflow (every step)
 
@@ -202,14 +202,14 @@ All pure functions, depend only on `panel_info`.
 
 | Step | Function | Deps | Description | Status |
 |------|----------|------|-------------|--------|
-| 7.1 | `init_boundary_layer` | `stagnation_state`, `thwaites_init`, `residual_station` | March BL from stagnation | [ ] |
-| 7.2 | `stagpoint_move` | `identify_surfaces`, `rebuild_ue_m` | Move stagnation point | [ ] |
-| 7.3 | `build_glob_sys` | `build_param`, `stagnation_state`, `residual_station`, `wake_sys`, `residual_transition` | Assemble residuals + Jacobian | [ ] |
-| 7.4 | `clalpha_residual` | `get_ueinvref` | cl-constraint residual | [ ] |
-| 7.5 | `solve_glob` | `get_ueinv`, `clalpha_residual` | Solve linear system | [ ] |
-| 7.6 | `update_state` | `get_Hk` | Under-relaxed Newton update | [ ] |
-| 7.7 | `solve_coupled` | `build_glob_sys`, `calc_force`, `solve_glob`, `update_state`, `stagpoint_move`, `update_transition` | Newton iteration loop | [ ] |
-| 7.8 | `solve_viscous` | everything | Top-level viscous solve | [ ] |
+| 7.1 | `init_boundary_layer` | `stagnation_state`, `thwaites_init`, `residual_station` | March BL from stagnation | [x] |
+| 7.2 | `stagpoint_move` | `identify_surfaces`, `rebuild_ue_m` | Move stagnation point | [x] |
+| 7.3 | `build_glob_sys` | `build_param`, `stagnation_state`, `residual_station`, `wake_sys`, `residual_transition` | Assemble residuals + Jacobian | [x] |
+| 7.4 | `clalpha_residual` | `get_ueinvref` | cl-constraint residual | [x] |
+| 7.5 | `solve_glob` | `get_ueinv`, `clalpha_residual` | Solve linear system | [x] |
+| 7.6 | `update_state` | `get_Hk` | Under-relaxed Newton update | [x] |
+| 7.7 | `solve_coupled` | `build_glob_sys`, `calc_force`, `solve_glob`, `update_state`, `stagpoint_move`, `update_transition` | Newton iteration loop | [x] |
+| 7.8 | `solve_viscous` | everything | Top-level viscous solve | [x] |
 
 **Notes:**
 - `build_glob_sys`: R_U Jacobian 3N^tot x 4N^tot — `# NOTE: sparse candidate`

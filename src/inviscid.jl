@@ -315,11 +315,43 @@ function calc_force!(M)
         M.post.cdpi = cdpi
     end
 
-    # viscous contributions (stub for now, will be filled in Phase 7)
+    # viscous contributions
     cd = 0.0
     cdf = 0.0
     if M.oper.viscous
-        # Will be implemented in Phase 7 with closure functions
+        # Squire-Young relation for total drag (extrapolates theta from end of wake)
+        iw = M.vsol.Is[3][end]  # station at the end of the wake
+        Uw = M.glob.U[:, iw]
+        Hw, Hw_U = get_H(Uw)
+        uk, uk_ue = get_uk(Uw[4], M.param)
+        cd = 2.0 * Uw[1] * (uk / Vinf)^((5 + Hw) / 2.0)
+        M.post.cd_U = 2.0 * Uw[1] * (uk / Vinf)^((5 + Hw) / 2.0) * log(uk / Vinf) * 0.5 * Hw_U
+        M.post.cd_U[1] += 2.0 * (uk / Vinf)^((5 + Hw) / 2.0)
+        M.post.cd_U[4] += 2.0 * Uw[1] * (5 + Hw) / 2.0 * (uk / Vinf)^((3 + Hw) / 2.0) * (1.0 / Vinf) * uk_ue
+
+        # skin friction drag
+        Df = 0.0
+        for si in 1:2
+            Is = M.vsol.Is[si]
+            param = build_param(M, si)
+            station_param!(M, param, Is[1])
+            cf1 = 0.0
+            ue1 = 0.0
+            rho1 = rho
+            x1 = M.isol.xstag
+            for ii in 1:length(Is)
+                station_param!(M, param, Is[ii])
+                cf2, cf2_U = get_cf(M.glob.U[:, Is[ii]], param)
+                ue2, ue2_ue = get_uk(M.glob.U[4, Is[ii]], param)
+                rho2, rho2_U = get_rho(M.glob.U[:, Is[ii]], param)
+                x2 = M.foil.x[:, Is[ii]]
+                dxv = x2 .- x1
+                dx_cf = dxv[1] * cosd(alpha) + dxv[2] * sind(alpha)
+                Df += 0.25 * (rho1 * cf1 * ue1^2 + rho2 * cf2 * ue2^2) * dx_cf
+                cf1 = cf2; ue1 = ue2; x1 = x2; rho1 = rho2
+            end
+        end
+        cdf = Df / (qinf * chord)
     end
 
     M.post.cd = cd
