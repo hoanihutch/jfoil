@@ -136,7 +136,7 @@ end
 
 Place panels on the current airfoil using curvature-based point distribution.
 """
-function make_panels!(M, npanel::Int, stgt)
+function make_panels!(M, npanel::Int, stgt=nothing)
     clear_solution!(M)
     Ufac = 2      # uniformity factor
     TEfac = 0.1   # trailing-edge factor

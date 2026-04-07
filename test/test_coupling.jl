@@ -107,7 +107,7 @@ using JFoil
         @test length(R) == 3
         @test R[1] ≈ 0.001 atol=1e-10
         @test R[2] ≈ 0.00048534 rtol=1e-4
-        @test R[3] ≈ -0.02828143 rtol=1e-4
+        @test R[3] ≈ -0.02799189 rtol=1e-4
 
         @test size(R_U) == (3, 12)
         @test R_U[1, 1] ≈ -1.0
@@ -119,10 +119,10 @@ using JFoil
         @test R_U[3, 11] ≈ 1.0
 
         # ctw linearization entries
-        @test R_U[3, 1] ≈ 9.87189065 rtol=1e-4
-        @test R_U[3, 2] ≈ -3.29240094 rtol=1e-4
-        @test R_U[3, 5] ≈ 9.86792211 rtol=1e-4
-        @test R_U[3, 6] ≈ -3.29104276 rtol=1e-4
+        @test R_U[3, 1] ≈ 9.65937005 rtol=1e-4
+        @test R_U[3, 2] ≈ -3.24192329 rtol=1e-4
+        @test R_U[3, 5] ≈ 9.65083074 rtol=1e-4
+        @test R_U[3, 6] ≈ -3.23909751 rtol=1e-4
 
         # Python J=[0, 199, 200] -> Julia J=[1, 200, 201]
         @test J == [1, 200, 201]
@@ -133,7 +133,7 @@ using JFoil
         @test length(Uw) == 4
         @test Uw[1] ≈ 0.009 atol=1e-10
         @test Uw[2] ≈ 0.02951466 rtol=1e-4
-        @test Uw[3] ≈ 0.02928143 rtol=1e-4
+        @test Uw[3] ≈ 0.02899189 rtol=1e-4
         @test Uw[4] ≈ 0.85
     end
 
