@@ -33,6 +33,9 @@ include("coupling.jl")
 # Phase 7: Coupled solver
 include("solver.jl")
 
+# Phase 8: Post-processing
+include("postprocess.jl")
+
 # Exports
 export Geom, Panel, Oper, Isol, Vsol, Glob, Post, Param, Mfoil
 export vprint, norm2, dist
@@ -56,5 +59,6 @@ export store_transition!, march_amplification!, update_transition!
 export identify_surfaces!, set_wake_gap!, calc_ue_m!, rebuild_ue_m!, wake_sys, wake_init
 export init_boundary_layer!, stagpoint_move!, build_glob_sys!, clalpha_residual
 export solve_glob!, update_state!, solve_coupled!, solve_viscous!
+export get_distributions!, mgeom_flap!, mgeom_addcamber!, mgeom_derotate!
 
 end # module JFoil

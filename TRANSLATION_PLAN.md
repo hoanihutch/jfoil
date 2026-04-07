@@ -16,10 +16,10 @@ Primary reference: `original/mfoil.py`. Cross-reference: `original/mfoil.m`.
 | 5 | BL Residuals & Initialization | 9/9 |
 | 6 | Viscous Matrices & Coupling | 6/6 |
 | 7 | Coupled Solver | 8/8 |
-| 8 | Post-Processing & Polish | 0/6 |
-| **Total** | | **83/89** |
+| 8 | Post-Processing & Polish | 4/6 |
+| **Total** | | **87/89** |
 
-**Next step:** Phase 8 — post-processing in `src/postprocess.jl`.
+**Remaining:** Phase 8.5 (ping_test) and 8.6 (plotting, deferred).
 
 ## Workflow (every step)
 
@@ -225,10 +225,10 @@ cl=0.4889, cd=0.00617, cm=-0.0501
 
 | Step | Function | Description | Status |
 |------|----------|-------------|--------|
-| 8.1 | `get_distributions` | Extract BL distributions | [ ] |
-| 8.2 | `mgeom_flap` | Flap deployment | [ ] |
-| 8.3 | `mgeom_addcamber` | Camber addition | [ ] |
-| 8.4 | `mgeom_derotate` | Derotate chord line | [ ] |
+| 8.1 | `get_distributions` | Extract BL distributions | [x] |
+| 8.2 | `mgeom_flap` | Flap deployment | [x] |
+| 8.3 | `mgeom_addcamber` | Camber addition | [x] |
+| 8.4 | `mgeom_derotate` | Derotate chord line | [x] |
 | 8.5 | `ping_test` / `check_ping` | FD derivative verification | [ ] |
 | 8.6 | Plotting (defer) | Plots.jl / Makie.jl | [ ] |
 

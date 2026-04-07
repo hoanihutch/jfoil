@@ -689,6 +689,6 @@ function solve_viscous!(M)
     stagpoint_move!(M)
     solve_coupled!(M)
     calc_force!(M)
-    # get_distributions(M)  # Phase 8
+    get_distributions!(M)
     return nothing
 end
