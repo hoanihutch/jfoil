@@ -149,6 +149,116 @@ end
 
 #-------------------------------------------------------------------------------
 """
+    plot_cpplus(p, M)
+
+Add Cp plot with annotation text to subplot p.
+"""
+function plot_cpplus(p, M)
+    chord = M.geom.chord
+    x = copy(M.foil.x[1, :])
+    N = M.foil.N
+
+    if M.oper.viscous
+        x = vcat(x, M.wake.x[1, :])
+        colors = [:red, :blue, :black]
+        for si in 1:3
+            Is = M.vsol.Is[si]
+            Plots.plot!(p, x[Is], M.post.cp[Is]; color=colors[si], lw=2, label="")
+            Plots.plot!(p, x[Is], M.post.cpi[Is]; color=colors[si], ls=:dash, lw=2, label="")
+        end
+    else
+        Plots.plot!(p, x, M.post.cp; color=:blue, lw=2, label="")
+    end
+
+    Plots.yflip!(p, true)
+    Plots.ylabel!(p, "cp")
+
+    # annotation
+    txt = @sprintf("%s\nMa = %.4f\nalpha = %.2f deg\ncl = %.4f\ncm = %.4f\ncd = %.6f",
+        M.geom.name, M.oper.Ma, M.oper.alpha, M.post.cl, M.post.cm, M.post.cd)
+    if M.oper.viscous
+        txt *= @sprintf("\nRe = %.1e\ncdf = %.5f\ncdp = %.5f",
+            M.oper.Re, M.post.cdf, M.post.cdp)
+    end
+    Plots.annotate!(p, 0.85 * chord, minimum(M.post.cp[1:N]) + 0.3,
+        Plots.text(txt, 8, :left))
+    return p
+end
+
+
+#-------------------------------------------------------------------------------
+"""
+    plot_airfoil(p, M)
+
+Add airfoil (and wake) geometry to subplot p.
+"""
+function plot_airfoil(p, M)
+    xz = copy(M.foil.x)
+    if M.oper.viscous
+        xz = hcat(xz, M.wake.x)
+    end
+    Plots.plot!(p, xz[1, :], xz[2, :]; color=:black, lw=1, label="", aspect_ratio=:equal)
+    return p
+end
+
+
+#-------------------------------------------------------------------------------
+"""
+    plot_boundary_layer(p, M)
+
+Add boundary layer displacement thickness to subplot p.
+"""
+function plot_boundary_layer(p, M)
+    if !M.oper.viscous; return p; end
+    xz = hcat(M.foil.x, M.wake.x)
+    N = M.foil.N
+    ds = M.post.ds
+    rl = 0.5 * (1.0 + (ds[1] - ds[N]) / ds[N + 1])
+    ru = 1.0 - rl
+    t = hcat(M.foil.t, M.wake.t)
+    n = vcat(-t[2:2, :], t[1:1, :])  # outward normals
+    for i in 1:size(n, 2)
+        nn = sqrt(n[1, i]^2 + n[2, i]^2)
+        if nn > 0; n[:, i] ./= nn; end
+    end
+    xzd = xz .+ n .* ds'
+    colors = [:red, :blue, :black]
+    for i in 0:3
+        si = i
+        if si == 2; xzd = xz .+ n .* (ds .* ru)'; end
+        if si == 3; xzd = xz .- n .* (ds .* rl)'; si = 2; end
+        Is = M.vsol.Is[si + 1]  # Julia 1-based
+        Plots.plot!(p, xzd[1, Is], xzd[2, Is]; color=colors[si + 1], lw=2, label="")
+    end
+    return p
+end
+
+
+#-------------------------------------------------------------------------------
+"""
+    plot_results(M)
+
+Make a summary results plot with Cp, airfoil shape, and BL thickness.
+Requires Plots.jl.
+"""
+function plot_results(M)
+    @assert length(M.post.cp) > 0 "no cp for results plot"
+
+    p1 = Plots.plot(; title="", legend=false)
+    plot_cpplus(p1, M)
+
+    p2 = Plots.plot(; title="", legend=false)
+    plot_airfoil(p2, M)
+    plot_boundary_layer(p2, M)
+
+    fig = Plots.plot(p1, p2; layout=(2, 1), size=(800, 700))
+    Plots.display(fig)
+    return fig
+end
+
+
+#-------------------------------------------------------------------------------
+"""
     check_ping(ep, v, v_u, sname) -> (E, rate)
 
 Check convergence of finite-difference derivative pinging.

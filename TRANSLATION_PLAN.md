@@ -16,10 +16,10 @@ Primary reference: `original/mfoil.py`. Cross-reference: `original/mfoil.m`.
 | 5 | BL Residuals & Initialization | 9/9 |
 | 6 | Viscous Matrices & Coupling | 6/6 |
 | 7 | Coupled Solver | 8/8 |
-| 8 | Post-Processing & Polish | 5/6 |
-| **Total** | | **88/89** |
+| 8 | Post-Processing & Polish | 6/6 |
+| **Total** | | **89/89** |
 
-**Remaining:** Phase 8.6 — plotting (deferred, Plots.jl / Makie.jl).
+**Translation complete.**
 
 ## Workflow (every step)
 
@@ -230,7 +230,7 @@ cl=0.4889, cd=0.00617, cm=-0.0501
 | 8.3 | `mgeom_addcamber` | Camber addition | [x] |
 | 8.4 | `mgeom_derotate` | Derotate chord line | [x] |
 | 8.5 | `ping_test` / `check_ping` | FD derivative verification | [x] |
-| 8.6 | Plotting (defer) | Plots.jl / Makie.jl | [ ] |
+| 8.6 | Plotting | Plots.jl | [x] |
 
 ---
 

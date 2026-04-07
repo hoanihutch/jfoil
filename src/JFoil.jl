@@ -3,6 +3,7 @@ module JFoil
 using LinearAlgebra
 using Printf
 using Random
+using Plots
 
 # Phase 0: Types and utilities
 include("types.jl")
@@ -62,5 +63,6 @@ export init_boundary_layer!, stagpoint_move!, build_glob_sys!, clalpha_residual
 export solve_glob!, update_state!, solve_coupled!, solve_viscous!
 export get_distributions!, mgeom_flap!, mgeom_addcamber!, mgeom_derotate!
 export check_ping, ping_test!
+export plot_results, plot_cpplus, plot_airfoil, plot_boundary_layer
 
 end # module JFoil
