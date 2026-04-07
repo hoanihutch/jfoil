@@ -14,14 +14,12 @@ Primary reference: `original/mfoil.py`. Cross-reference: `original/mfoil.m`.
 | 3 | Inviscid Solver | 11/11 |
 | 4 | Closure Relations | 27/27 |
 | 5 | BL Residuals & Initialization | 9/9 |
-| 6 | Viscous Matrices & Coupling | 0/6 |
-| 7 | Coupled Solver | 0/8 |
-| 8 | Post-Processing & Polish | 0/6 |
-| **Total** | | **69/89** |
+| 6 | Viscous Matrices & Coupling | 6/6 |
+| 7 | Coupled Solver | 8/8 |
+| 8 | Post-Processing & Polish | 6/6 |
+| **Total** | | **89/89** |
 
-**Next step:** Phase 6 — viscous matrices and coupling in `src/coupling.jl`.
-
-**Note:** `rebuild_isol!` in `src/inviscid.jl` calls `identify_surfaces!` and `calc_ue_m!` (Phase 6) which are not yet defined. This will error if the viscous+redowake path is triggered before Phase 6 is complete.
+**Translation complete.**
 
 ## Workflow (every step)
 
@@ -186,12 +184,12 @@ All pure functions, depend only on `panel_info`.
 
 | Step | Function | Deps | Description | Status |
 |------|----------|------|-------------|--------|
-| 6.1 | `identify_surfaces` | — | Split airfoil into lower/upper/wake | [ ] |
-| 6.2 | `set_wake_gap` | `TE_info` | TE dead-air thickness | [ ] |
-| 6.3 | `calc_ue_m` | panel influence fns | Build ue-mass sensitivity D matrix | [ ] |
-| 6.4 | `rebuild_ue_m` | — | Rebuild after stagnation moves | [ ] |
-| 6.5 | `wake_sys` | `TE_info`, `get_cttr` | Wake first-node residual | [ ] |
-| 6.6 | `wake_init` | `wake_sys` | Initialize first wake point | [ ] |
+| 6.1 | `identify_surfaces` | — | Split airfoil into lower/upper/wake | [x] |
+| 6.2 | `set_wake_gap` | `TE_info` | TE dead-air thickness | [x] |
+| 6.3 | `calc_ue_m` | panel influence fns | Build ue-mass sensitivity D matrix | [x] |
+| 6.4 | `rebuild_ue_m` | — | Rebuild after stagnation moves | [x] |
+| 6.5 | `wake_sys` | `TE_info`, `get_cttr` | Wake first-node residual | [x] |
+| 6.6 | `wake_init` | `wake_sys` | Initialize first wake point | [x] |
 
 **Notes:**
 - `calc_ue_m` builds D matrix (N+Nw)x(N+Nw) — `# NOTE: sparse candidate`
@@ -204,14 +202,14 @@ All pure functions, depend only on `panel_info`.
 
 | Step | Function | Deps | Description | Status |
 |------|----------|------|-------------|--------|
-| 7.1 | `init_boundary_layer` | `stagnation_state`, `thwaites_init`, `residual_station` | March BL from stagnation | [ ] |
-| 7.2 | `stagpoint_move` | `identify_surfaces`, `rebuild_ue_m` | Move stagnation point | [ ] |
-| 7.3 | `build_glob_sys` | `build_param`, `stagnation_state`, `residual_station`, `wake_sys`, `residual_transition` | Assemble residuals + Jacobian | [ ] |
-| 7.4 | `clalpha_residual` | `get_ueinvref` | cl-constraint residual | [ ] |
-| 7.5 | `solve_glob` | `get_ueinv`, `clalpha_residual` | Solve linear system | [ ] |
-| 7.6 | `update_state` | `get_Hk` | Under-relaxed Newton update | [ ] |
-| 7.7 | `solve_coupled` | `build_glob_sys`, `calc_force`, `solve_glob`, `update_state`, `stagpoint_move`, `update_transition` | Newton iteration loop | [ ] |
-| 7.8 | `solve_viscous` | everything | Top-level viscous solve | [ ] |
+| 7.1 | `init_boundary_layer` | `stagnation_state`, `thwaites_init`, `residual_station` | March BL from stagnation | [x] |
+| 7.2 | `stagpoint_move` | `identify_surfaces`, `rebuild_ue_m` | Move stagnation point | [x] |
+| 7.3 | `build_glob_sys` | `build_param`, `stagnation_state`, `residual_station`, `wake_sys`, `residual_transition` | Assemble residuals + Jacobian | [x] |
+| 7.4 | `clalpha_residual` | `get_ueinvref` | cl-constraint residual | [x] |
+| 7.5 | `solve_glob` | `get_ueinv`, `clalpha_residual` | Solve linear system | [x] |
+| 7.6 | `update_state` | `get_Hk` | Under-relaxed Newton update | [x] |
+| 7.7 | `solve_coupled` | `build_glob_sys`, `calc_force`, `solve_glob`, `update_state`, `stagpoint_move`, `update_transition` | Newton iteration loop | [x] |
+| 7.8 | `solve_viscous` | everything | Top-level viscous solve | [x] |
 
 **Notes:**
 - `build_glob_sys`: R_U Jacobian 3N^tot x 4N^tot — `# NOTE: sparse candidate`
@@ -227,12 +225,12 @@ cl=0.4889, cd=0.00617, cm=-0.0501
 
 | Step | Function | Description | Status |
 |------|----------|-------------|--------|
-| 8.1 | `get_distributions` | Extract BL distributions | [ ] |
-| 8.2 | `mgeom_flap` | Flap deployment | [ ] |
-| 8.3 | `mgeom_addcamber` | Camber addition | [ ] |
-| 8.4 | `mgeom_derotate` | Derotate chord line | [ ] |
-| 8.5 | `ping_test` / `check_ping` | FD derivative verification | [ ] |
-| 8.6 | Plotting (defer) | Plots.jl / Makie.jl | [ ] |
+| 8.1 | `get_distributions` | Extract BL distributions | [x] |
+| 8.2 | `mgeom_flap` | Flap deployment | [x] |
+| 8.3 | `mgeom_addcamber` | Camber addition | [x] |
+| 8.4 | `mgeom_derotate` | Derotate chord line | [x] |
+| 8.5 | `ping_test` / `check_ping` | FD derivative verification | [x] |
+| 8.6 | Plotting | Plots.jl | [x] |
 
 ---
 

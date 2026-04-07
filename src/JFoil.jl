@@ -2,6 +2,8 @@ module JFoil
 
 using LinearAlgebra
 using Printf
+using Random
+using Plots
 
 # Phase 0: Types and utilities
 include("types.jl")
@@ -27,6 +29,15 @@ include("closures_dissipation.jl")
 # Phase 5: Boundary layer
 include("boundary_layer.jl")
 
+# Phase 6: Coupling
+include("coupling.jl")
+
+# Phase 7: Coupled solver
+include("solver.jl")
+
+# Phase 8: Post-processing
+include("postprocess.jl")
+
 # Exports
 export Geom, Panel, Oper, Isol, Vsol, Glob, Post, Param, Mfoil
 export vprint, norm2, dist
@@ -47,5 +58,11 @@ export build_param, station_param!
 export stagnation_state, thwaites_init
 export residual_station, residual_transition
 export store_transition!, march_amplification!, update_transition!
+export identify_surfaces!, set_wake_gap!, calc_ue_m!, rebuild_ue_m!, wake_sys, wake_init
+export init_boundary_layer!, stagpoint_move!, build_glob_sys!, clalpha_residual
+export solve_glob!, update_state!, solve_coupled!, solve_viscous!
+export get_distributions!, mgeom_flap!, mgeom_addcamber!, mgeom_derotate!
+export check_ping, ping_test!
+export plot_results, plot_cpplus, plot_airfoil, plot_boundary_layer
 
 end # module JFoil
