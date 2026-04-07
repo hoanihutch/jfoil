@@ -90,4 +90,25 @@ using LinearAlgebra
         @test M.geom.xpoint[1, iLE] < 0.01  # LE near x=0
     end
 
+    @testset "8.5: check_ping" begin
+        # Use f(x)=x^3, f'(x)=3x^2 — FD has 2nd-order truncation error
+        ep = 0.01; x0 = 1.0
+        f(x) = x^3; fp(x) = 3*x^2
+        v = [f(x0), f(x0+ep), f(x0+2*ep)]
+        v_u = [fp(x0), fp(x0+ep), fp(x0+2*ep)]
+        E, rate = check_ping(ep, v, v_u, "test cubic")
+        @test rate ≈ 2.0 atol=0.3
+    end
+
+    @testset "8.5: ping_test! runs" begin
+        M = Mfoil()
+        naca_points!(M, "2412")
+        make_panels!(M, 199)
+        M.param.verb = 0
+
+        # Verify it runs without errors (full derivative check)
+        ping_test!(M)
+        @test true
+    end
+
 end

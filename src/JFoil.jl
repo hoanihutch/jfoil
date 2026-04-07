@@ -2,6 +2,7 @@ module JFoil
 
 using LinearAlgebra
 using Printf
+using Random
 
 # Phase 0: Types and utilities
 include("types.jl")
@@ -60,5 +61,6 @@ export identify_surfaces!, set_wake_gap!, calc_ue_m!, rebuild_ue_m!, wake_sys, w
 export init_boundary_layer!, stagpoint_move!, build_glob_sys!, clalpha_residual
 export solve_glob!, update_state!, solve_coupled!, solve_viscous!
 export get_distributions!, mgeom_flap!, mgeom_addcamber!, mgeom_derotate!
+export check_ping, ping_test!
 
 end # module JFoil
