@@ -16,7 +16,7 @@ end
 
 2-norm of a 2-vector.
 """
-function norm2(x::AbstractVector)
+@inline function norm2(x::AbstractVector)
     return sqrt(x[1]^2 + x[2]^2)
 end
 
@@ -25,6 +25,6 @@ end
 
 Distance = sqrt(a^2 + b^2).
 """
-function dist(a::Real, b::Real)
+@inline function dist(a::Real, b::Real)
     return sqrt(a^2 + b^2)
 end

@@ -29,7 +29,7 @@ All `deepcopy(param)` calls are replaced first (Phase 1) because it's the simple
 
 ## 3. Tasks
 
-### Task 0.1: Create baseline benchmark script
+### Task 0.1: Create baseline benchmark script ✅
 
 **Files:** `benchmark/bench_viscous.jl` (new), `Project.toml` (add BenchmarkTools)
 **Depends on:** None
@@ -58,7 +58,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 1.1: Eliminate `deepcopy(param)` in `build_param`
+### Task 1.1: Eliminate `deepcopy(param)` in `build_param` ✅
 
 **Files:** `src/boundary_layer.jl`, `src/types.jl`
 **Depends on:** Task 0.1
@@ -90,7 +90,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 1.2: Eliminate `deepcopy(param)` in closures and coupling
+### Task 1.2: Eliminate `deepcopy(param)` in closures and coupling ✅
 
 **Files:** `src/closures_dissipation.jl`, `src/coupling.jl`
 **Depends on:** Task 1.1
@@ -126,7 +126,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 2.1: Comparison spike — `panel_info` return type
+### Task 2.1: Comparison spike — `panel_info` return type ✅
 
 **Files:** None committed (spike only, results recorded in benchmark script comments)
 **Depends on:** Task 0.1
@@ -147,7 +147,7 @@ Decision recorded as comment in `benchmark/bench_viscous.jl`.
 
 ---
 
-### Task 2.2: Convert `panel_info`, panel functions, and `TE_info`
+### Task 2.2: Convert `panel_info`, panel functions, and `TE_info` ✅
 
 **Files:** `src/geometry.jl`, `src/panels.jl`, `src/JFoil.jl` (if adding `using StaticArrays`), `Project.toml` (if adding StaticArrays)
 **Depends on:** Task 2.1
@@ -178,7 +178,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 3.1: Comparison spike — closure Jacobian return type
+### Task 3.1: Comparison spike — closure Jacobian return type ✅
 
 **Files:** None committed (spike only)
 **Depends on:** Task 0.1
@@ -200,7 +200,7 @@ Decision recorded in benchmark spike results.
 
 ---
 
-### Task 3.2: Convert `closures_shape.jl`
+### Task 3.2: Convert `closures_shape.jl` ✅
 
 **Files:** `src/closures_shape.jl`
 **Depends on:** Task 3.1
@@ -234,7 +234,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 3.3: Convert `closures_friction.jl`
+### Task 3.3: Convert `closures_friction.jl` ✅
 
 **Files:** `src/closures_friction.jl`
 **Depends on:** Task 3.2
@@ -269,7 +269,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 3.4: Convert `closures_dissipation.jl`
+### Task 3.4: Convert `closures_dissipation.jl` ✅
 
 **Files:** `src/closures_dissipation.jl`
 **Depends on:** Task 3.2, Task 1.2
@@ -303,7 +303,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 4.1: Comparison spike — `residual_station` output types
+### Task 4.1: Comparison spike — `residual_station` output types ✅
 
 **Files:** None committed (spike only)
 **Depends on:** Task 3.3
@@ -324,7 +324,7 @@ Decision recorded.
 
 ---
 
-### Task 4.2: Convert `residual_station`
+### Task 4.2: Convert `residual_station` ✅
 
 **Files:** `src/boundary_layer.jl`
 **Depends on:** Task 4.1, Task 3.3, Task 3.4
@@ -364,7 +364,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 4.3: Convert `stagnation_state`
+### Task 4.3: Convert `stagnation_state` ✅
 
 **Files:** `src/boundary_layer.jl`
 **Depends on:** Task 4.2
@@ -395,7 +395,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 4.4: Convert `residual_transition`
+### Task 4.4: Convert `residual_transition` ✅
 
 **Files:** `src/boundary_layer.jl`
 **Depends on:** Task 4.2
@@ -435,7 +435,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 5.1: Convert `inviscid_velocity` and `build_wake!`
+### Task 5.1: Convert `inviscid_velocity` and `build_wake!` ✅
 
 **Files:** `src/inviscid.jl`
 **Depends on:** Task 2.2
@@ -472,7 +472,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 6.1: Workspace reuse for large matrices in `build_glob_sys!`
+### Task 6.1: Workspace reuse for large matrices in `build_glob_sys!` ✅
 
 **Files:** `src/solver.jl`
 **Depends on:** Task 4.2
@@ -502,7 +502,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 6.2: Update `build_glob_sys!` consumers for static types
+### Task 6.2: Update `build_glob_sys!` consumers for static types ✅
 
 **Files:** `src/solver.jl`
 **Depends on:** Task 4.2, Task 4.3, Task 4.4
@@ -535,7 +535,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 7.1: Add `@inline` to hot functions
+### Task 7.1: Add `@inline` to hot functions ✅
 
 **Files:** `src/closures_shape.jl`, `src/closures_friction.jl`, `src/closures_dissipation.jl`, `src/geometry.jl`, `src/utils.jl`, `src/panels.jl`
 **Depends on:** Task 3.4, Task 2.2
@@ -565,7 +565,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 7.2: Add `@inbounds` to verified-safe inner loops
+### Task 7.2: Add `@inbounds` to verified-safe inner loops ✅
 
 **Files:** `src/inviscid.jl`, `src/solver.jl`, `src/coupling.jl`
 **Depends on:** Task 5.1, Task 6.2
@@ -593,7 +593,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 7.3: Audit parametric types and verify with `@code_warntype`
+### Task 7.3: Audit parametric types and verify with `@code_warntype` ✅
 
 **Files:** All `src/*.jl` files touched in prior phases
 **Depends on:** Task 7.1, Task 7.2
@@ -622,7 +622,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 8.1: Comparison spike — threading `build_gamma!`
+### Task 8.1: Comparison spike — threading `build_gamma!` ✅
 
 **Files:** None committed (spike only)
 **Depends on:** Task 5.1
@@ -643,7 +643,7 @@ Decision recorded: "threading beneficial at N=200: yes/no" with measured speedup
 
 ---
 
-### Task 8.2: Apply threading (if beneficial)
+### Task 8.2: Apply threading (if beneficial) ✅
 
 **Files:** `src/inviscid.jl`, `src/coupling.jl`, optionally `src/solver.jl`
 **Depends on:** Task 8.1
@@ -674,7 +674,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 9.1: Implement `aseq` sweep function
+### Task 9.1: Implement `aseq` sweep function ✅
 
 **Files:** `src/solver.jl`, `src/JFoil.jl` (export)
 **Depends on:** Task 6.1
@@ -745,7 +745,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 9.2: Implement `cseq` sweep function
+### Task 9.2: Implement `cseq` sweep function ✅
 
 **Files:** `src/solver.jl`, `src/JFoil.jl` (export)
 **Depends on:** Task 9.1
@@ -784,7 +784,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 9.3: Update benchmark script with sweep benchmarks
+### Task 9.3: Update benchmark script with sweep benchmarks ✅
 
 **Files:** `benchmark/bench_viscous.jl`
 **Depends on:** Task 9.1, Task 9.2
@@ -809,7 +809,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ---
 
-### Task 10.1: Final benchmark and assessment
+### Task 10.1: Final benchmark and assessment ✅
 
 **Files:** `benchmark/bench_viscous.jl` (update with final numbers)
 **Depends on:** All previous tasks

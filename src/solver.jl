@@ -66,15 +66,16 @@ function init_boundary_layer!(M)
             nNewton = 20
             for iNewton in 0:nNewton-1
                 param.turb = false; param.simi = true
-                R, R_U, R_x = residual_station(param, [xst, xst], hcat(Ust, Ust), zeros(2))
+                R, R_U, R_x = residual_station(param, SVector(xst, xst), hcat(SVector{4}(Ust), SVector{4}(Ust)), SVector(0.0, 0.0))
                 param.simi = false
                 if norm(R) < 1e-10; break; end
                 A = R_U[:, 5:7] + R_U[:, 1:3]
                 b = -R
-                dU = vcat(A \ b, 0.0)
+                sol = A \ b
+                dU = SVector(sol[1], sol[2], sol[3], 0.0)
                 dm = max(abs(dU[1] / Ust[1]), abs(dU[2] / Ust[2]))
                 omega = dm < 0.2 ? 1.0 : 0.2 / dm
-                dU .*= omega
+                dU = dU .* omega
                 Ust .+= dU
             end
 
@@ -93,7 +94,7 @@ function init_boundary_layer!(M)
         tran = false
         i = i0 + 1
         while i <= N
-            Ip = [i - 1, i]
+            Ip = SVector(i - 1, i)
             U[:, i] = U[:, i-1]; U[4, i] = ue[i]  # guess
             if tran
                 ct, ct_U = get_cttr(U[:, i], param); U[3, i] = ct
@@ -114,7 +115,7 @@ function init_boundary_layer!(M)
                         vprint(param, 1, "Transition calculation failed in BL init. Continuing.")
                         M.vsol.xt = 0.5 * sum(xi[Ip])
                         U[:, i] = U[:, i-1]; U[4, i] = ue[i]; U[3, i] = ct
-                        R = zeros(3)  # so we move on
+                        R = zero(SVector{3,Float64})  # so we move on
                     end
                 else
                     vprint(param, 4, @sprintf("i=%d, residual_station (iNewton = %d)", i, iNewton))
@@ -138,9 +139,9 @@ function init_boundary_layer!(M)
                 elseif direct; dm = max(dm, abs(dU[3] / 10)); end
 
                 omega = dm > 0.3 ? 0.3 / dm : 1.0
-                dU .*= omega
+                dU = dU .* omega
 
-                Ui = U[:, i] + dU
+                Ui = Vector(U[:, i] + dU)
 
                 # clip extreme values
                 if param.turb; Ui[3] = clamp(Ui[3], 1e-7, 0.3); end
@@ -299,55 +300,57 @@ function build_glob_sys!(M)
     if do_alloc
         M.glob.R = zeros(3 * Nsys)
     else
-        M.glob.R .= 0.0
+        fill!(M.glob.R, 0.0)
     end
 
     alloc_R_U = M.glob.realloc || size(M.glob.R_U) != (3 * Nsys, 4 * Nsys)
     if alloc_R_U
         M.glob.R_U = zeros(3 * Nsys, 4 * Nsys)  # NOTE: sparse candidate
     else
-        M.glob.R_U .= 0.0
+        fill!(M.glob.R_U, 0.0)
     end
 
     alloc_R_x = M.glob.realloc || size(M.glob.R_x) != (3 * Nsys, Nsys)
     if alloc_R_x
         M.glob.R_x = zeros(3 * Nsys, Nsys)  # NOTE: sparse candidate
     else
-        M.glob.R_x .= 0.0
+        fill!(M.glob.R_x, 0.0)
     end
+
+    M.glob.realloc = false
 
     for si in 1:3  # loop over surfaces
         Is = M.vsol.Is[si]
         xi = M.isol.xi[Is]
         N = length(Is)
         U = M.glob.U[:, Is]
-        Aux = zeros(N)
 
         param = build_param(M, si)
 
-        if si == 3; Aux[:] = M.vsol.wgap; end
+        # Aux: wake gap for wake surface, zeros for airfoil surfaces
+        Aux = si == 3 ? M.vsol.wgap : zeros(N)
 
         # special case of tiny first xi
         i0 = (si < 3 && xi[1] < 1e-8 * xi[end]) ? 2 : 1
 
         # first point system
         if si < 3
-            Ip = [i0, i0 + 1]
+            Ip = SVector(i0, i0 + 1)
             Ust, Ust_U, Ust_x, xst = stagnation_state(U[:, Ip], xi[Ip])
             param.turb = false; param.simi = true
-            R1, R1_Ut, R1_x = residual_station(param, [xst, xst], hcat(Ust, Ust), Aux[[i0, i0]])
+            R1, R1_Ut, R1_x = residual_station(param, SVector(xst, xst), hcat(Ust, Ust), SVector(Aux[i0], Aux[i0]))
             param.simi = false
             R1_Ust = R1_Ut[:, 1:4] + R1_Ut[:, 5:8]
             R1_U = R1_Ust * Ust_U
             R1_x = R1_Ust * Ust_x
-            J = [Is[i0], Is[i0 + 1]]
+            J = SVector(Is[i0], Is[i0 + 1])
 
             if i0 == 2
                 # i0=1 landed on stagnation: set value to Ust
                 vprint(param, 2, "hit stagnation!")
                 Ig = (3*(Is[1]-1)+1):(3*(Is[1]-1)+3)
                 M.glob.R[Ig] = U[1:3, 1] - Ust[1:3]
-                M.glob.R_U[Ig, (4*(Is[1]-1)+1):(4*(Is[1]-1)+4)] += [1 0 0 0; 0 1 0 0; 0 0 1 0]
+                M.glob.R_U[Ig, (4*(Is[1]-1)+1):(4*(Is[1]-1)+4)] += SMatrix{3,4}(1,0,0, 0,1,0, 0,0,1, 0,0,0)
                 M.glob.R_U[Ig, (4*(J[1]-1)+1):(4*(J[1]-1)+4)] -= Ust_U[1:3, 1:4]
                 M.glob.R_U[Ig, (4*(J[2]-1)+1):(4*(J[2]-1)+4)] -= Ust_U[1:3, 5:8]
                 M.glob.R_x[Ig, J] = -Ust_x[1:3, :]
@@ -371,8 +374,8 @@ function build_glob_sys!(M)
         end
 
         # march over rest of points
-        for i in (i0 + 1):N
-            Ip = [i - 1, i]
+        @inbounds for i in (i0 + 1):N
+            Ip = SVector(i - 1, i)
             tran = M.vsol.turb[Is[i-1]] ⊻ M.vsol.turb[Is[i]]
 
             if tran
@@ -386,7 +389,7 @@ function build_glob_sys!(M)
             M.glob.R[Ig] += Ri
             M.glob.R_U[Ig, (4*(Is[i-1]-1)+1):(4*(Is[i-1]-1)+4)] += Ri_U[:, 1:4]
             M.glob.R_U[Ig, (4*(Is[i]-1)+1):(4*(Is[i]-1)+4)] += Ri_U[:, 5:8]
-            M.glob.R_x[Ig, [Is[i-1], Is[i]]] += Ri_x
+            M.glob.R_x[Ig, SVector(Is[i-1], Is[i])] += Ri_x
 
             if tran; param.turb = true; end
         end
@@ -463,11 +466,11 @@ function solve_glob!(M)
 
     # initialize global variable Jacobian
     NN = 4 * Nsys + docl
-    alloc_R_V = M.glob.realloc || size(M.glob.R_V) != (NN, NN)
+    alloc_R_V = size(M.glob.R_V) != (NN, NN)
     if alloc_R_V
         M.glob.R_V = zeros(NN, NN)  # NOTE: sparse candidate
     else
-        M.glob.R_V .= 0.0
+        fill!(M.glob.R_V, 0.0)
     end
 
     # state indices in global system
@@ -691,4 +694,183 @@ function solve_viscous!(M)
     calc_force!(M)
     get_distributions!(M)
     return nothing
+end
+
+
+"""
+    aseq(M, a1, a2, da)
+
+Alpha sweep: solve viscous at each alpha in a1:da:a2, returning a polar table.
+Geometry setup is done once; each successive point warm-starts from the previous.
+On convergence failure, records NaN and reverts to the last converged BL state.
+"""
+function aseq(M::Mfoil, a1::Real, a2::Real, da::Real)
+    @assert M.foil.N > 0 "No panels"
+
+    # One-time geometry setup
+    solve_inviscid!(M)
+    M.oper.viscous = true
+    init_thermo!(M)
+    build_wake!(M)
+    stagpoint_find!(M)
+    identify_surfaces!(M)
+    set_wake_gap!(M)
+    calc_ue_m!(M)
+
+    alphas = collect(a1:da:a2)
+    npts = length(alphas)
+
+    # Polar accumulation
+    pol_cl = fill(NaN, npts)
+    pol_cd = fill(NaN, npts)
+    pol_cm = fill(NaN, npts)
+    pol_cdf = fill(NaN, npts)
+    pol_cdp = fill(NaN, npts)
+    pol_xtr_upper = fill(NaN, npts)
+    pol_xtr_lower = fill(NaN, npts)
+
+    # Last converged state for revert on failure
+    U_last = Matrix{Float64}(undef, 0, 0)
+    turb_last = Bool[]
+
+    for (k, alpha) in enumerate(alphas)
+        M.oper.alpha = alpha
+        M.oper.givencl = false
+
+        # Update gam from gamref for this alpha
+        M.isol.gam = M.isol.gamref[:, 1] .* cosd(alpha) .+ M.isol.gamref[:, 2] .* sind(alpha)
+
+        # First point: cold init; subsequent: warm-start
+        M.oper.initbl = (k == 1)
+
+        try
+            init_boundary_layer!(M)
+            stagpoint_move!(M)
+            solve_coupled!(M)
+            calc_force!(M)
+            get_distributions!(M)
+
+            if !M.glob.conv
+                error("not converged")
+            end
+
+            pol_cl[k] = M.post.cl
+            pol_cd[k] = M.post.cd
+            pol_cm[k] = M.post.cm
+            pol_cdf[k] = M.post.cdf
+            pol_cdp[k] = M.post.cdp
+
+            # Transition locations from distributions
+            Is_upper = M.vsol.Is[2]
+            Is_lower = M.vsol.Is[1]
+            pol_xtr_upper[k] = M.vsol.turb[Is_upper[1]] ? 0.0 : M.vsol.xt
+            pol_xtr_lower[k] = M.vsol.turb[Is_lower[1]] ? 0.0 : M.vsol.xt
+
+            # Save converged state
+            U_last = copy(M.glob.U)
+            turb_last = copy(M.vsol.turb)
+        catch
+            vprint(M.param, 1, "  aseq: alpha=$(alpha) failed, recording NaN")
+            # Revert to last converged state if available
+            if length(turb_last) > 0
+                M.glob.U .= U_last
+                M.vsol.turb .= turb_last
+            end
+        end
+    end
+
+    return (alpha=alphas, cl=pol_cl, cd=pol_cd, cm=pol_cm,
+            cdf=pol_cdf, cdp=pol_cdp, xtr_upper=pol_xtr_upper, xtr_lower=pol_xtr_lower)
+end
+
+
+"""
+    cseq(M, cl1, cl2, dcl)
+
+CL sweep: solve viscous at each cl in cl1:dcl:cl2, returning a polar table.
+Geometry setup is done once; each successive point warm-starts from the previous.
+On convergence failure, records NaN and reverts to the last converged BL state.
+"""
+function cseq(M::Mfoil, cl1::Real, cl2::Real, dcl::Real)
+    @assert M.foil.N > 0 "No panels"
+
+    # One-time geometry setup
+    solve_inviscid!(M)
+    M.oper.viscous = true
+    init_thermo!(M)
+    build_wake!(M)
+    stagpoint_find!(M)
+    identify_surfaces!(M)
+    set_wake_gap!(M)
+    calc_ue_m!(M)
+
+    cls = collect(cl1:dcl:cl2)
+    npts = length(cls)
+
+    # Polar accumulation
+    pol_alpha = fill(NaN, npts)
+    pol_cl = fill(NaN, npts)
+    pol_cd = fill(NaN, npts)
+    pol_cm = fill(NaN, npts)
+    pol_cdf = fill(NaN, npts)
+    pol_cdp = fill(NaN, npts)
+    pol_xtr_upper = fill(NaN, npts)
+    pol_xtr_lower = fill(NaN, npts)
+
+    # Last converged state for revert on failure
+    U_last = Matrix{Float64}(undef, 0, 0)
+    turb_last = Bool[]
+    alpha_last = M.oper.alpha
+
+    for (k, cltgt) in enumerate(cls)
+        M.oper.givencl = true
+        M.oper.cltgt = cltgt
+
+        # Update gam from gamref for current alpha
+        alpha = M.oper.alpha
+        M.isol.gam = M.isol.gamref[:, 1] .* cosd(alpha) .+ M.isol.gamref[:, 2] .* sind(alpha)
+
+        # First point: cold init; subsequent: warm-start
+        M.oper.initbl = (k == 1)
+
+        try
+            init_boundary_layer!(M)
+            stagpoint_move!(M)
+            solve_coupled!(M)
+            calc_force!(M)
+            get_distributions!(M)
+
+            if !M.glob.conv
+                error("not converged")
+            end
+
+            pol_alpha[k] = M.oper.alpha
+            pol_cl[k] = M.post.cl
+            pol_cd[k] = M.post.cd
+            pol_cm[k] = M.post.cm
+            pol_cdf[k] = M.post.cdf
+            pol_cdp[k] = M.post.cdp
+
+            Is_upper = M.vsol.Is[2]
+            Is_lower = M.vsol.Is[1]
+            pol_xtr_upper[k] = M.vsol.turb[Is_upper[1]] ? 0.0 : M.vsol.xt
+            pol_xtr_lower[k] = M.vsol.turb[Is_lower[1]] ? 0.0 : M.vsol.xt
+
+            # Save converged state
+            U_last = copy(M.glob.U)
+            turb_last = copy(M.vsol.turb)
+            alpha_last = M.oper.alpha
+        catch
+            vprint(M.param, 1, "  cseq: cl=$(cltgt) failed, recording NaN")
+            if length(turb_last) > 0
+                M.glob.U .= U_last
+                M.vsol.turb .= turb_last
+                M.oper.alpha = alpha_last
+            end
+        end
+    end
+
+    M.oper.givencl = false  # restore
+    return (alpha=pol_alpha, cl=pol_cl, cd=pol_cd, cm=pol_cm,
+            cdf=pol_cdf, cdp=pol_cdp, xtr_upper=pol_xtr_upper, xtr_lower=pol_xtr_lower)
 end

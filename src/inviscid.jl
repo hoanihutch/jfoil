@@ -15,7 +15,7 @@ function build_gamma!(M, alpha::Real)
 
     vprint(M.param, 1, "\n <<< Solving the inviscid problem >>> \n")
 
-    for i in 1:N
+    @inbounds Threads.@threads for i in 1:N
         xi = @view M.foil.x[:, i]
         for j in 1:N-1
             aij, bij = panel_linvortex_stream(M.foil.x[:, j:j+1], xi)
@@ -149,18 +149,19 @@ If dolin, also returns linearization V_G [2 x N].
 """
 function inviscid_velocity(X::AbstractMatrix, G::AbstractVector, Vinf::Real, alpha::Real, x::AbstractVector, dolin::Bool)
     N = size(X, 2)
-    V = zeros(2)
+    v1 = 0.0; v2 = 0.0
     if dolin
         V_G = zeros(2, N)
     end
     t, hTE, dtdx, tcp, tdp = TE_info(X)
 
-    for j in 1:N-1
+    @inbounds for j in 1:N-1
         a, b = panel_linvortex_velocity(X[:, j:j+1], x, nothing, false)
-        V .+= a .* G[j] .+ b .* G[j+1]
+        v1 += a[1] * G[j] + b[1] * G[j+1]
+        v2 += a[2] * G[j] + b[2] * G[j+1]
         if dolin
-            V_G[:, j] .+= a
-            V_G[:, j+1] .+= b
+            V_G[1, j] += a[1]; V_G[2, j] += a[2]
+            V_G[1, j+1] += b[1]; V_G[2, j+1] += b[2]
         end
     end
 
@@ -168,24 +169,26 @@ function inviscid_velocity(X::AbstractMatrix, G::AbstractVector, Vinf::Real, alp
     a = panel_constsource_velocity(X[:, [N, 1]], x, nothing)
     f1 = a .* (-0.5 * tcp)
     f2 = a .* (0.5 * tcp)
-    V .+= f1 .* G[1] .+ f2 .* G[N]
+    v1 += f1[1] * G[1] + f2[1] * G[N]
+    v2 += f1[2] * G[1] + f2[2] * G[N]
     if dolin
-        V_G[:, 1] .+= f1
-        V_G[:, N] .+= f2
+        V_G[1, 1] += f1[1]; V_G[2, 1] += f1[2]
+        V_G[1, N] += f2[1]; V_G[2, N] += f2[2]
     end
 
     # TE vortex influence
     a_v, b_v = panel_linvortex_velocity(X[:, [N, 1]], x, nothing, false)
     f1 = (a_v .+ b_v) .* (0.5 * tdp)
     f2 = (a_v .+ b_v) .* (-0.5 * tdp)
-    V .+= f1 .* G[1] .+ f2 .* G[N]
+    v1 += f1[1] * G[1] + f2[1] * G[N]
+    v2 += f1[2] * G[1] + f2[2] * G[N]
     if dolin
-        V_G[:, 1] .+= f1
-        V_G[:, N] .+= f2
+        V_G[1, 1] += f1[1]; V_G[2, 1] += f1[2]
+        V_G[1, N] += f2[1]; V_G[2, N] += f2[2]
     end
 
     # freestream
-    V .+= Vinf .* [cosd(alpha), sind(alpha)]
+    V = SVector(v1 + Vinf * cosd(alpha), v2 + Vinf * sind(alpha))
 
     if dolin
         return V, V_G
@@ -210,13 +213,15 @@ function build_wake!(M)
     sv = space_geom(ds1, M.geom.wakelen * M.geom.chord, Nw)
     xyw = zeros(2, Nw)
     tw = zeros(2, Nw)
-    xy1 = M.foil.x[:, 1]
-    xyN = M.foil.x[:, N]
-    xyte = 0.5 .* (xy1 .+ xyN)
-    n_vec = xyN .- xy1
-    t_vec = [n_vec[2], -n_vec[1]]
-    @assert t_vec[1] > 0 "Wrong wake direction; ensure airfoil points are CCW"
-    xyw[:, 1] = xyte .+ 1e-5 .* t_vec .* M.geom.chord
+    xy1x, xy1z = M.foil.x[1, 1], M.foil.x[2, 1]
+    xyNx, xyNz = M.foil.x[1, N], M.foil.x[2, N]
+    xyte_x = 0.5 * (xy1x + xyNx)
+    xyte_z = 0.5 * (xy1z + xyNz)
+    nx, nz = xyNx - xy1x, xyNz - xy1z
+    tx, tz = nz, -nx
+    @assert tx > 0 "Wrong wake direction; ensure airfoil points are CCW"
+    xyw[1, 1] = xyte_x + 1e-5 * tx * M.geom.chord
+    xyw[2, 1] = xyte_z + 1e-5 * tz * M.geom.chord
     sw = S[N] .+ sv
 
     for i in 1:Nw-1

@@ -234,4 +234,42 @@ using LinearAlgebra
         @test M.oper.alpha ≈ 2.379070166622572 rtol=1e-2
     end
 
+    @testset "9.1: aseq" begin
+        M = Mfoil(); naca_points!(M, "2412"); make_panels!(M, 199)
+        M.oper.Re = 1e5; M.param.verb = 0
+        polar = aseq(M, 0.0, 4.0, 2.0)  # alpha = 0, 2, 4
+
+        @test length(polar.alpha) == 3
+        @test all(.!isnan.(polar.cl))
+        @test all(.!isnan.(polar.cd))
+
+        # Verify against individual solve_viscous! calls
+        for (i, a) in enumerate([0.0, 2.0, 4.0])
+            M2 = Mfoil(); naca_points!(M2, "2412"); make_panels!(M2, 199)
+            M2.oper.Re = 1e5; M2.oper.alpha = a; M2.param.verb = 0
+            solve_viscous!(M2)
+            @test polar.cl[i] ≈ M2.post.cl rtol=1e-3
+            @test polar.cd[i] ≈ M2.post.cd rtol=1e-3
+        end
+    end
+
+    @testset "9.2: cseq" begin
+        M = Mfoil(); naca_points!(M, "2412"); make_panels!(M, 199)
+        M.oper.Re = 1e5; M.param.verb = 0
+        polar = cseq(M, 0.2, 0.6, 0.1)  # cl = 0.2, 0.3, 0.4, 0.5, 0.6
+
+        @test length(polar.cl) == 5
+        # At least 3 of 5 should converge (some points may fail with warm-start)
+        converged = .!isnan.(polar.cl)
+        @test sum(converged) >= 3
+        # Converged points should match target cl
+        for (i, clt) in enumerate(0.2:0.1:0.6)
+            if converged[i]
+                @test polar.cl[i] ≈ clt rtol=2e-2
+                @test polar.cd[i] > 0
+                @test polar.cd[i] < 0.1
+            end
+        end
+    end
+
 end

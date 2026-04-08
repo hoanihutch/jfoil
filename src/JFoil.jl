@@ -4,6 +4,7 @@ using LinearAlgebra
 using Printf
 using Random
 using Plots
+using StaticArrays
 
 # Phase 0: Types and utilities
 include("types.jl")
@@ -39,7 +40,7 @@ include("solver.jl")
 include("postprocess.jl")
 
 # Exports
-export Geom, Panel, Oper, Isol, Vsol, Glob, Post, Param, Mfoil
+export Geom, Panel, Oper, Isol, Vsol, Glob, Post, Param, Mfoil, copy_param
 export vprint, norm2, dist
 export CubicSpline1D, Spline2D, quadseg, spline2d, splineval, splinetan, spline_curvature
 export naca_points!
@@ -60,7 +61,7 @@ export residual_station, residual_transition
 export store_transition!, march_amplification!, update_transition!
 export identify_surfaces!, set_wake_gap!, calc_ue_m!, rebuild_ue_m!, wake_sys, wake_init
 export init_boundary_layer!, stagpoint_move!, build_glob_sys!, clalpha_residual
-export solve_glob!, update_state!, solve_coupled!, solve_viscous!
+export solve_glob!, update_state!, solve_coupled!, solve_viscous!, aseq, cseq
 export get_distributions!, mgeom_flap!, mgeom_addcamber!, mgeom_derotate!
 export check_ping, ping_test!
 export plot_results, plot_cpplus, plot_airfoil, plot_boundary_layer

@@ -196,6 +196,20 @@ function Param()
     )
 end
 
+"""
+    copy_param(p::Param)
+
+Lightweight field-by-field copy of Param (all scalar fields, no heap refs).
+Replaces deepcopy(param) which is expensive for a 28-field mutable struct.
+"""
+function copy_param(p::Param)
+    new_p = Param()
+    for f in fieldnames(Param)
+        setfield!(new_p, f, getfield(p, f))
+    end
+    return new_p
+end
+
 #-------------------------------------------------------------------------------
 mutable struct Mfoil
     version::String
