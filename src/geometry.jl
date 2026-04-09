@@ -61,21 +61,25 @@ end
 Returns trailing-edge information for airfoil with node coordinates X [2 x N].
 Returns: (t, hTE, dtdx, tcp, tdp)
 """
-function TE_info(X::AbstractMatrix)
-    t1 = X[:, 1] .- X[:, 2]
-    t1 = t1 ./ norm2(t1)    # lower tangent vector
-    t2 = X[:, end] .- X[:, end-1]
-    t2 = t2 ./ norm2(t2)    # upper tangent vector
-    t = 0.5 .* (t1 .+ t2)
-    t = t ./ norm2(t)         # average tangent; gap bisector
-    s = X[:, end] .- X[:, 1]  # lower to upper connector
-    hTE = -s[1] * t[2] + s[2] * t[1]  # TE gap
-    dtdx = t1[1] * t2[2] - t2[1] * t1[2]  # thickness slope
-    p = s ./ norm2(s)  # unit vector along TE panel
-    tcp = abs(t[1] * p[2] - t[2] * p[1])
-    tdp = dot(t, p)
+@inline function TE_info(X::AbstractMatrix)
+    t1x, t1z = X[1, 1] - X[1, 2], X[2, 1] - X[2, 2]
+    len1 = dist(t1x, t1z)
+    t1x, t1z = t1x / len1, t1z / len1        # lower tangent
+    t2x, t2z = X[1, end] - X[1, end-1], X[2, end] - X[2, end-1]
+    len2 = dist(t2x, t2z)
+    t2x, t2z = t2x / len2, t2z / len2        # upper tangent
+    tx, tz = 0.5 * (t1x + t2x), 0.5 * (t1z + t2z)
+    lent = dist(tx, tz)
+    tx, tz = tx / lent, tz / lent              # average tangent; gap bisector
+    sx, sz = X[1, end] - X[1, 1], X[2, end] - X[2, 1]  # lower to upper connector
+    hTE = -sx * tz + sz * tx                   # TE gap
+    dtdx = t1x * t2z - t2x * t1z              # thickness slope
+    lens = dist(sx, sz)
+    px, pz = sx / lens, sz / lens              # unit vector along TE panel
+    tcp = abs(tx * pz - tz * px)
+    tdp = tx * px + tz * pz
 
-    return t, hTE, dtdx, tcp, tdp
+    return SVector(tx, tz), hTE, dtdx, tcp, tdp
 end
 
 
@@ -89,22 +93,23 @@ INPUT:
 OUTPUT:
   t, n, x, z, d, r1, r2, theta1, theta2
 """
-function panel_info(Xj::AbstractMatrix, xi::AbstractVector)
+@inline function panel_info(Xj::AbstractMatrix, xi::AbstractVector)
     xj1, zj1 = Xj[1, 1], Xj[2, 1]
     xj2, zj2 = Xj[1, 2], Xj[2, 2]
 
     # panel-aligned tangent and normal vectors
-    t = [xj2 - xj1, zj2 - zj1]
-    t = t ./ norm2(t)
-    n = [-t[2], t[1]]
+    dx, dz = xj2 - xj1, zj2 - zj1
+    len = dist(dx, dz)
+    t = SVector(dx / len, dz / len)
+    n = SVector(-t[2], t[1])
 
     # control point relative to (xj1, zj1)
-    xz = [xi[1] - xj1, xi[2] - zj1]
-    x = dot(xz, t)
-    z = dot(xz, n)
+    rx, rz = xi[1] - xj1, xi[2] - zj1
+    x = rx * t[1] + rz * t[2]
+    z = rx * n[1] + rz * n[2]
 
     # distances and angles
-    d = dist(xj2 - xj1, zj2 - zj1)
+    d = len
     r1 = dist(x, z)
     r2 = dist(x - d, z)
     theta1 = atan(z, x)

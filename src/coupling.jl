@@ -62,7 +62,7 @@ function calc_ue_m!(M)
 
     # Cgam = d(wake uei)/d(gamma) [Nw x N]
     Cgam = zeros(Nw, N)
-    for i in 1:Nw
+    @inbounds for i in 1:Nw
         V, V_G = inviscid_velocity(M.foil.x, M.isol.gam, 0.0, 0.0,
                                     M.wake.x[:, i], true)
         @views for j in 1:N
@@ -75,7 +75,7 @@ function calc_ue_m!(M)
     Npan = N + Nw - 2  # total number of panels
     B = zeros(N + 1, Npan)
 
-    for i in 1:N
+    @inbounds for i in 1:N
         xi = @view M.foil.x[:, i]
 
         # airfoil panels (constant source)
@@ -265,22 +265,23 @@ function wake_sys(M, param::Param)
     t, hTE, dtdx, tcp, tdp = TE_info(M.foil.x)
 
     # Obtain wake shear stress from upper/lower
-    p = deepcopy(param)
-    p.turb = true
-    p.wake = false
+    saved_turb = param.turb
+    saved_wake = param.wake
+    param.turb = true
+    param.wake = false
 
     if M.vsol.turb[il]
         ctl = Ul[3]
         ctl_Ul = [0.0, 0.0, 1.0, 0.0]
     else
-        ctl, ctl_Ul = get_cttr(collect(Ul), p)
+        ctl, ctl_Ul = get_cttr(collect(Ul), param)
     end
 
     if M.vsol.turb[iu]
         ctu = Uu[3]
         ctu_Uu = [0.0, 0.0, 1.0, 0.0]
     else
-        ctu, ctu_Uu = get_cttr(collect(Uu), p)
+        ctu, ctu_Uu = get_cttr(collect(Uu), param)
     end
 
     thsum = Ul[1] + Uu[1]
@@ -313,6 +314,8 @@ function wake_sys(M, param::Param)
 
     R_U = hcat(R_Ul, R_Uu, R_Uw)
 
+    param.turb = saved_turb
+    param.wake = saved_wake
     return R, R_U, J
 end
 

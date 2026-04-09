@@ -7,7 +7,7 @@ Linear vortex panel velocity influence coefficients.
 Returns (a, b) where velocity = a*g1 + b*g2.
 If vdir is nothing, a,b are 2-vectors; otherwise scalars (dotted with vdir).
 """
-function panel_linvortex_velocity(Xj::AbstractMatrix, xi::AbstractVector, vdir, onmid::Bool)
+@inline function panel_linvortex_velocity(Xj::AbstractMatrix, xi::AbstractVector, vdir, onmid::Bool)
     t, n, x, z, d, r1, r2, theta1, theta2 = panel_info(Xj, xi)
 
     if onmid
@@ -26,8 +26,8 @@ function panel_linvortex_velocity(Xj::AbstractMatrix, xi::AbstractVector, vdir, 
         wg2 = -temp2
     end
 
-    a = [ug1 * t[1] + wg1 * n[1], ug1 * t[2] + wg1 * n[2]]
-    b = [ug2 * t[1] + wg2 * n[1], ug2 * t[2] + wg2 * n[2]]
+    a = SVector(ug1 * t[1] + wg1 * n[1], ug1 * t[2] + wg1 * n[2])
+    b = SVector(ug2 * t[1] + wg2 * n[1], ug2 * t[2] + wg2 * n[2])
 
     if vdir !== nothing
         a = dot(a, vdir)
@@ -44,7 +44,7 @@ end
 Linear vortex panel streamfunction influence coefficients.
 Returns (a, b) where psi = a*g1 + b*g2.
 """
-function panel_linvortex_stream(Xj::AbstractMatrix, xi::AbstractVector)
+@inline function panel_linvortex_stream(Xj::AbstractMatrix, xi::AbstractVector)
     t, n, x, z, d, r1, r2, theta1, theta2 = panel_info(Xj, xi)
 
     ep = 1e-9
@@ -67,7 +67,7 @@ end
 Constant source panel velocity influence coefficient.
 Returns a where velocity = a*sigma.
 """
-function panel_constsource_velocity(Xj::AbstractMatrix, xi::AbstractVector, vdir)
+@inline function panel_constsource_velocity(Xj::AbstractMatrix, xi::AbstractVector, vdir)
     t, n, x, z, d, r1, r2, theta1, theta2 = panel_info(Xj, xi)
 
     ep = 1e-9
@@ -85,7 +85,7 @@ function panel_constsource_velocity(Xj::AbstractMatrix, xi::AbstractVector, vdir
     u = (0.5 / π) * (logr1 - logr2)
     w = (0.5 / π) * (theta2 - theta1)
 
-    a = [u * t[1] + w * n[1], u * t[2] + w * n[2]]
+    a = SVector(u * t[1] + w * n[1], u * t[2] + w * n[2])
     if vdir !== nothing
         a = dot(a, vdir)
     end
@@ -100,7 +100,7 @@ end
 Constant source panel streamfunction influence coefficient.
 Returns a where psi = a*sigma.
 """
-function panel_constsource_stream(Xj::AbstractMatrix, xi::AbstractVector)
+@inline function panel_constsource_stream(Xj::AbstractMatrix, xi::AbstractVector)
     t, n, x, z, d, r1, r2, theta1, theta2 = panel_info(Xj, xi)
 
     ep = 1e-9
@@ -130,7 +130,7 @@ end
 Linear source panel velocity influence coefficients.
 Returns (a, b) where velocity = a*s1 + b*s2.
 """
-function panel_linsource_velocity(Xj::AbstractMatrix, xi::AbstractVector, vdir)
+@inline function panel_linsource_velocity(Xj::AbstractMatrix, xi::AbstractVector, vdir)
     t, n, x, z, d, r1, r2, theta1, theta2 = panel_info(Xj, xi)
 
     temp1 = log(r1 / r2) / (2.0 * π)
@@ -142,8 +142,8 @@ function panel_linsource_velocity(Xj::AbstractMatrix, xi::AbstractVector, vdir)
     wg1 = temp1 - temp2
     wg2 = temp2
 
-    a = [ug1 * t[1] + wg1 * n[1], ug1 * t[2] + wg1 * n[2]]
-    b = [ug2 * t[1] + wg2 * n[1], ug2 * t[2] + wg2 * n[2]]
+    a = SVector(ug1 * t[1] + wg1 * n[1], ug1 * t[2] + wg1 * n[2])
+    b = SVector(ug2 * t[1] + wg2 * n[1], ug2 * t[2] + wg2 * n[2])
 
     if vdir !== nothing
         a = dot(a, vdir)
@@ -160,7 +160,7 @@ end
 Linear source panel streamfunction influence coefficients.
 Returns (a, b) where psi = a*s1 + b*s2.
 """
-function panel_linsource_stream(Xj::AbstractMatrix, xi::AbstractVector)
+@inline function panel_linsource_stream(Xj::AbstractMatrix, xi::AbstractVector)
     t, n, x, z, d, r1, r2, theta1, theta2 = panel_info(Xj, xi)
 
     # make branch cut at theta = 0

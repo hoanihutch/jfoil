@@ -6,9 +6,9 @@
 
 Skin friction coefficient. Returns (cf, cf_U).
 """
-function get_cf(U::AbstractVector, param)
+@inline function get_cf(U::AbstractVector, param)
     if param.wake
-        return 0.0, zeros(4)
+        return 0.0, zero(SVector{4,Float64})
     end
 
     Hk, Hk_U = get_Hk(U, param)
@@ -25,7 +25,7 @@ function get_cf(U::AbstractVector, param)
         end
         bb = log(Ret / Fc); bb_U = Ret_U ./ Ret .- Fc_U ./ Fc
         if bb < 3
-            bb = 3.0; bb_U = bb_U .* 0.0
+            bb = 3.0; bb_U = zero(SVector{4,Float64})
         end
         bb /= log(10); bb_U = bb_U ./ log(10)
         cc = -1.74 - 0.31 * Hk; cc_U = -0.31 .* Hk_U
@@ -55,11 +55,11 @@ end
 
 cf*x/theta from state. Returns (cfxt, cfxt_U, cfxt_x).
 """
-function get_cfxt(U::AbstractVector, x::Real, param)
+@inline function get_cfxt(U::AbstractVector, x::Real, param)
     cf, cf_U = get_cf(U, param)
     cfxt = cf * x / U[1]
-    cfxt_U = cf_U .* (x / U[1])
-    cfxt_U[1] -= cfxt / U[1]
+    cfxt_U0 = cf_U .* (x / U[1])
+    cfxt_U = SVector(cfxt_U0[1] - cfxt / U[1], cfxt_U0[2], cfxt_U0[3], cfxt_U0[4])
     cfxt_x = cf / U[1]
     return cfxt, cfxt_U, cfxt_x
 end
@@ -70,9 +70,8 @@ end
 
 cf*ue*theta at stagnation (laminar only). Returns (F, F_U).
 """
-function get_cfutstag(Uin::AbstractVector, param)
-    U = copy(Uin)
-    U[4] = 0.0
+@inline function get_cfutstag(Uin::AbstractVector, param)
+    U = SVector(Uin[1], Uin[2], Uin[3], 0.0)
     Hk, Hk_U = get_Hk(U, param)
 
     if Hk < 5.5
@@ -94,16 +93,16 @@ end
 
 Normalized wall slip velocity.
 """
-function get_Us(U::AbstractVector, param)
+@inline function get_Us(U::AbstractVector, param)
     Hs, Hs_U = get_Hs(U, param)
     Hk, Hk_U = get_Hk(U, param)
     H, H_U = get_H(U)
 
     if param.wake && Hk < 1.00005
-        Hk = 1.00005; Hk_U = Hk_U .* 0.0
+        Hk = 1.00005; Hk_U = zero(SVector{4,Float64})
     end
     if !param.wake && Hk < 1.05
-        Hk = 1.05; Hk_U = Hk_U .* 0.0
+        Hk = 1.05; Hk_U = zero(SVector{4,Float64})
     end
 
     beta = param.GB; bi = 1.0 / beta
@@ -111,10 +110,10 @@ function get_Us(U::AbstractVector, param)
     Us_U = 0.5 .* Hs_U .* (1.0 - bi * (Hk - 1.0) / H) .+ 0.5 * Hs .* (-bi .* Hk_U ./ H .+ bi * (Hk - 1.0) / H^2 .* H_U)
 
     if !param.wake && Us > 0.95
-        Us = 0.98; Us_U = Us_U .* 0.0
+        Us = 0.98; Us_U = zero(SVector{4,Float64})
     end
     if !param.wake && Us > 0.99995
-        Us = 0.99995; Us_U = Us_U .* 0.0
+        Us = 0.99995; Us_U = zero(SVector{4,Float64})
     end
 
     return Us, Us_U
@@ -126,10 +125,10 @@ end
 
 Local upwind factor (0.5=trap, 1=BE). Returns (upw, upw_U) where upw_U is 1x8.
 """
-function get_upw(U1::AbstractVector, U2::AbstractVector, param)
+@inline function get_upw(U1::AbstractVector, U2::AbstractVector, param)
     Hk1, Hk1_U1 = get_Hk(U1, param)
     Hk2, Hk2_U2 = get_Hk(U2, param)
-    Z = zeros(length(Hk1_U1))
+    Z = zero(SVector{4,Float64})
     Hut = 1.0
     C = param.wake ? 1.0 : 5.0
     Huc = C * Hut / Hk2^2
@@ -140,7 +139,7 @@ function get_upw(U1::AbstractVector, U2::AbstractVector, param)
     la_U = vcat(-1.0 / (Hk1 - 1.0) .* Hk1_U1, 1.0 / (Hk2 - 1.0) .* Hk2_U2)
     Hls = la^2; Hls_U = 2.0 * la .* la_U
     if Hls > 15
-        Hls = 15.0; Hls_U = Hls_U .* 0.0
+        Hls = 15.0; Hls_U = zero(SVector{8,Float64})
     end
     upw = 1.0 - 0.5 * exp(-Hls * Huc)
     upw_U = -0.5 * exp(-Hls * Huc) .* (-Hls_U .* Huc .- Hls .* Huc_U)
@@ -153,7 +152,7 @@ end
 
 Upwind average of two scalars. Returns (f, f_U) where f_U is 1x8.
 """
-function upwind(upw::Real, upw_U, f1::Real, f1_U1::AbstractVector, f2::Real, f2_U2::AbstractVector)
+@inline function upwind(upw::Real, upw_U, f1::Real, f1_U1, f2::Real, f2_U2)
     f = (1.0 - upw) * f1 + upw * f2
     f_U = (-upw_U) .* f1 .+ upw_U .* f2 .+ vcat((1.0 - upw) .* f1_U1, upw .* f2_U2)
     return f, f_U
@@ -165,7 +164,7 @@ end
 
 Equilibrium 1/ue*due/dx. Returns (uq, uq_U).
 """
-function get_uq(ds::Real, ds_U, cf::Real, cf_U, Hk::Real, Hk_U, Ret::Real, Ret_U, param)
+@inline function get_uq(ds::Real, ds_U, cf::Real, cf_U, Hk::Real, Hk_U, Ret::Real, Ret_U, param)
     beta, A, C = param.GB, param.GA, param.GC
     if param.wake
         A = A * param.Dlr; C = 0.0
@@ -194,13 +193,13 @@ end
 
 Amplification rate dn/dx for transition prediction. Returns (damp, damp_U).
 """
-function get_damp(U::AbstractVector, param)
+@inline function get_damp(U::AbstractVector, param)
     Hk, Hk_U = get_Hk(U, param)
     Ret, Ret_U = get_Ret(U, param)
     th = U[1]
 
     if Hk < 1.05
-        Hk = 1.05; Hk_U = Hk_U .* 0.0
+        Hk = 1.05; Hk_U = zero(SVector{4,Float64})
     end
 
     Hmi = 1.0 / (Hk - 1.0)
@@ -217,13 +216,13 @@ function get_damp(U::AbstractVector, param)
     dl = 0.1
 
     damp = 0.0
-    damp_U = zeros(length(U))
+    damp_U = zero(SVector{4,Float64})
 
     if lr >= lrc - dl
         rn = (lr - (lrc - dl)) / (2.0 * dl)
         rn_U = (lr_U .- lrc_U) ./ (2.0 * dl)
         if rn >= 1.0
-            rf = 1.0; rf_U = zeros(length(U))
+            rf = 1.0; rf_U = zero(SVector{4,Float64})
         else
             rf = 3.0 * rn^2 - 2.0 * rn^3
             rf_U = (6.0 * rn - 6.0 * rn^2) .* rn_U
@@ -237,18 +236,18 @@ function get_damp(U::AbstractVector, param)
         af = -0.05 + 2.7 * Hmi - 5.5 * Hmi^2 + 3.0 * Hmi^3 + 0.1 * exp(-20.0 * Hmi)
         af_U = (2.7 - 11.0 * Hmi + 9.0 * Hmi^2 - 1.0 * exp(-20.0 * Hmi)) .* Hmi_U
         damp = rf * af * da / th
-        damp_U = (rf_U .* af .* da .+ rf .* af_U .* da .+ rf .* af .* da_U) ./ th .- damp / th .* [1.0, 0.0, 0.0, 0.0]
+        damp_U = (rf_U .* af .* da .+ rf .* af_U .* da .+ rf .* af .* da_U) ./ th .- damp / th .* SVector(1.0, 0.0, 0.0, 0.0)
     end
 
     # extra amplification near ncrit
     ncrit = param.ncrit
     Cea = 5.0
     nx = Cea * (U[3] - ncrit)
-    nx_U = Cea .* [0.0, 0.0, 1.0, 0.0]
+    nx_U = SVector(0.0, 0.0, Cea, 0.0)
     eex = 1.0 + tanh(nx)
     eex_U = (1.0 - tanh(nx)^2) .* nx_U
     ed = eex * 0.001 / th
-    ed_U = eex_U .* 0.001 / th .- ed / th .* [1.0, 0.0, 0.0, 0.0]
+    ed_U = eex_U .* 0.001 / th .- ed / th .* SVector(1.0, 0.0, 0.0, 0.0)
     damp += ed
     damp_U = damp_U .+ ed_U
 

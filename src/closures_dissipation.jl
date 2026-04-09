@@ -7,23 +7,23 @@
 
 Total dissipation function 2*cD/H*. Returns (cDi, cDi_U).
 """
-function get_cDi(U::AbstractVector, param)
+@inline function get_cDi(U::AbstractVector, param)
     if param.turb
-        cDi = 0.0; cDi_U = zeros(4)
+        cDi = 0.0; cDi_U = zero(SVector{4,Float64})
 
         if !param.wake
             cDi0, cDi0_U = get_cDi_turbwall(U, param)
-            cDi += cDi0; cDi_U .+= cDi0_U
+            cDi += cDi0; cDi_U = cDi_U + cDi0_U
             cDil, cDil_U = get_cDi_lam(U, param)
         else
             cDil, cDil_U = get_cDi_lamwake(U, param)
         end
 
         cDi0, cDi0_U = get_cDi_outer(U, param)
-        cDi += cDi0; cDi_U .+= cDi0_U
+        cDi += cDi0; cDi_U = cDi_U + cDi0_U
 
         cDi0, cDi0_U = get_cDi_lamstress(U, param)
-        cDi += cDi0; cDi_U .+= cDi0_U
+        cDi += cDi0; cDi_U = cDi_U + cDi0_U
 
         if cDil > cDi
             cDi = cDil; cDi_U = cDil_U
@@ -45,9 +45,9 @@ end
 
 Turbulent wall contribution to dissipation.
 """
-function get_cDi_turbwall(U::AbstractVector, param)
+@inline function get_cDi_turbwall(U::AbstractVector, param)
     if param.wake
-        return 0.0, zeros(4)
+        return 0.0, zero(SVector{4,Float64})
     end
 
     cf, cf_U = get_cf(U, param)
@@ -74,7 +74,7 @@ end
 
 Laminar dissipation function.
 """
-function get_cDi_lam(U::AbstractVector, param)
+@inline function get_cDi_lam(U::AbstractVector, param)
     Hk, Hk_U = get_Hk(U, param)
     Ret, Ret_U = get_Ret(U, param)
 
@@ -98,13 +98,13 @@ end
 
 Laminar wake dissipation function.
 """
-function get_cDi_lamwake(U::AbstractVector, paramin)
-    param = deepcopy(paramin)
-    param.turb = false
+@inline function get_cDi_lamwake(U::AbstractVector, paramin)
+    saved_turb = paramin.turb
+    paramin.turb = false
 
-    Hk, Hk_U = get_Hk(U, param)
-    Hs, Hs_U = get_Hs(U, param)
-    Ret, Ret_U = get_Ret(U, param)
+    Hk, Hk_U = get_Hk(U, paramin)
+    Hs, Hs_U = get_Hs(U, paramin)
+    Ret, Ret_U = get_Ret(U, paramin)
     HsRet = Hs * Ret
     HsRet_U = Hs_U .* Ret .+ Hs .* Ret_U
 
@@ -112,6 +112,7 @@ function get_cDi_lamwake(U::AbstractVector, paramin)
     num_Hk = 2.0 * 1.1 * (2.0 * (1.0 - 1.0 / Hk) * (1.0 / Hk^2) * (1.0 / Hk) + (1.0 - 1.0 / Hk)^2 * (-1.0 / Hk^2))
     cDi = num / HsRet
     cDi_U = num_Hk .* Hk_U ./ HsRet .- num / HsRet^2 .* HsRet_U
+    paramin.turb = saved_turb
     return cDi, cDi_U
 end
 
@@ -121,15 +122,15 @@ end
 
 Turbulent outer layer contribution to dissipation.
 """
-function get_cDi_outer(U::AbstractVector, param)
+@inline function get_cDi_outer(U::AbstractVector, param)
     if !param.turb
-        return 0.0, zeros(4)
+        return 0.0, zero(SVector{4,Float64})
     end
 
     Hs, Hs_U = get_Hs(U, param)
     Us, Us_U = get_Us(U, param)
 
-    ct = U[3]^2; ct_U = [0.0, 0.0, 2.0 * U[3], 0.0]
+    ct = U[3]^2; ct_U = SVector(0.0, 0.0, 2.0 * U[3], 0.0)
 
     cDi = ct * (0.995 - Us) * 2.0 / Hs
     cDi_U = ct_U .* ((0.995 - Us) * 2.0 / Hs) .+ ct .* (-Us_U) .* 2.0 / Hs .- ct * (0.995 - Us) * 2.0 / Hs^2 .* Hs_U
@@ -143,7 +144,7 @@ end
 
 Laminar stress contribution to dissipation.
 """
-function get_cDi_lamstress(U::AbstractVector, param)
+@inline function get_cDi_lamstress(U::AbstractVector, param)
     Hs, Hs_U = get_Hs(U, param)
     Us, Us_U = get_Us(U, param)
     Ret, Ret_U = get_Ret(U, param)
@@ -163,11 +164,11 @@ end
 
 cDi*x/theta from state. Returns (cDixt, cDixt_U, cDixt_x).
 """
-function get_cDixt(U::AbstractVector, x::Real, param)
+@inline function get_cDixt(U::AbstractVector, x::Real, param)
     cDi, cDi_U = get_cDi(U, param)
     cDixt = cDi * x / U[1]
-    cDixt_U = cDi_U .* (x / U[1])
-    cDixt_U[1] -= cDixt / U[1]
+    cDixt_U0 = cDi_U .* (x / U[1])
+    cDixt_U = SVector(cDixt_U0[1] - cDixt / U[1], cDixt_U0[2], cDixt_U0[3], cDixt_U0[4])
     cDixt_x = cDi / U[1]
     return cDixt, cDixt_U, cDixt_x
 end
@@ -178,9 +179,8 @@ end
 
 cDi*ue*theta at stagnation (laminar only). Returns (D, D_U).
 """
-function get_cdutstag(Uin::AbstractVector, param)
-    U = copy(Uin)
-    U[4] = 0.0
+@inline function get_cdutstag(Uin::AbstractVector, param)
+    U = SVector(Uin[1], Uin[2], Uin[3], 0.0)
     Hk, Hk_U = get_Hk(U, param)
 
     if Hk < 4.0
@@ -204,7 +204,7 @@ end
 
 Equilibrium sqrt(ctau). Returns (cteq, cteq_U).
 """
-function get_cteq(U::AbstractVector, param)
+@inline function get_cteq(U::AbstractVector, param)
     CC = 0.5 / (param.GA^2 * param.GB)
     C = param.GC
     Hk, Hk_U = get_Hk(U, param)
@@ -217,7 +217,7 @@ function get_cteq(U::AbstractVector, param)
         if Hk < 1.00005
             Hk = 1.00005; Hk_U = Hk_U .* 0.0
         end
-        Hkc = Hk - 1.0; Hkc_U = copy(Hk_U)
+        Hkc = Hk - 1.0; Hkc_U = Hk_U
     else
         if Hk < 1.05
             Hk = 1.05; Hk_U = Hk_U .* 0.0
@@ -245,11 +245,11 @@ end
 
 sqrt(shear stress coefficient) at transition. Returns (cttr, cttr_U).
 """
-function get_cttr(U::AbstractVector, param)
-    param_copy = deepcopy(param)
-    param_copy.wake = false
-    cteq, cteq_U = get_cteq(U, param_copy)
-    Hk, Hk_U = get_Hk(U, param_copy)
+@inline function get_cttr(U::AbstractVector, param)
+    saved_wake = param.wake
+    param.wake = false
+    cteq, cteq_U = get_cteq(U, param)
+    Hk, Hk_U = get_Hk(U, param)
     if Hk < 1.05
         Hk = 1.05; Hk_U = Hk_U .* 0.0
     end
@@ -258,5 +258,6 @@ function get_cttr(U::AbstractVector, param)
     c_U = c * E / (Hk - 1.0)^2 .* Hk_U
     cttr = c * cteq
     cttr_U = c_U .* cteq .+ c .* cteq_U
+    param.wake = saved_wake
     return cttr, cttr_U
 end

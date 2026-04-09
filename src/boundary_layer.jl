@@ -8,7 +8,7 @@ function build_param(M::Mfoil, si::Int)
     #   si : side number, 1 = lower, 2 = upper, 3 = wake (Julia 1-based)
     # OUTPUT
     #   param : copy of M.param with side information
-    param = deepcopy(M.param)
+    param = copy_param(M.param)
     param.wake = (si == 3)
     param.turb = param.wake  # the wake is fully turbulent
     param.simi = false       # true for similarity station
@@ -34,48 +34,59 @@ function stagnation_state(U::AbstractMatrix, x::AbstractVector)
     #   U  : 4x2 matrix [U1 U2], states at first two nodes
     #   x  : 2-vector [x1, x2], x-locations of first two nodes
     # OUTPUT
-    #   Ust   : 4-vector, stagnation state
-    #   Ust_U : 4x8 Jacobian of Ust w.r.t. [U1; U2]
-    #   Ust_x : 4x2 Jacobian of Ust w.r.t. [x1, x2]
+    #   Ust   : SVector{4}, stagnation state
+    #   Ust_U : SMatrix{4,8} Jacobian of Ust w.r.t. [U1; U2]
+    #   Ust_x : SMatrix{4,2} Jacobian of Ust w.r.t. [x1, x2]
     #   xst   : stagnation point location (small, near 0)
 
-    @views U1 = U[:, 1]; U2 = U[:, 2]
     x1, x2 = x[1], x[2]
-    dx = x2 - x1; dx_x = [-1.0, 1.0]
-    rx = x2 / x1; rx_x = [-rx, 1.0] / x1
+    dx = x2 - x1; dx_x = SVector(-1.0, 1.0)
+    rx = x2 / x1; rx_x = SVector(-rx, 1.0) / x1
 
     # linear extrapolation weights and stagnation state
-    w1 = x2 / dx; w1_x = -w1 / dx * dx_x + [0.0, 1.0] / dx
-    w2 = -x1 / dx; w2_x = -w2 / dx * dx_x + [-1.0, 0.0] / dx
-    Ust = U1 * w1 + U2 * w2
+    w1 = x2 / dx; w1_x = -w1 / dx * dx_x + SVector(0.0, 1.0) / dx
+    w2 = -x1 / dx; w2_x = -w2 / dx * dx_x + SVector(-1.0, 0.0) / dx
+
+    # stagnation state: first 3 components from linear extrapolation
+    Ust1 = U[1,1] * w1 + U[1,2] * w2
+    Ust2 = U[2,1] * w1 + U[2,2] * w2
+    Ust3 = U[3,1] * w1 + U[3,2] * w2
 
     # quadratic extrapolation of edge velocity for better slope, ue=K*x
     wk1 = rx / dx; wk1_x = rx_x / dx - wk1 / dx * dx_x
     wk2 = -1.0 / (rx * dx); wk2_x = -wk2 * (rx_x / rx + dx_x / dx)
-    K = wk1 * U1[4] + wk2 * U2[4]
-    K_U = [0.0, 0.0, 0.0, wk1, 0.0, 0.0, 0.0, wk2]
-    K_x = U1[4] * wk1_x + U2[4] * wk2_x
+    K = wk1 * U[4,1] + wk2 * U[4,2]
+    K_x = U[4,1] * wk1_x + U[4,2] * wk2_x
 
     # stagnation coord cannot be zero, but must be small
     xst = 1e-6
-    Ust[4] = K * xst  # linear dep of ue on x near stagnation
+    Ust4 = K * xst  # linear dep of ue on x near stagnation
+    Ust = SVector(Ust1, Ust2, Ust3, Ust4)
 
-    # Ust_U: 4x8 Jacobian
+    # Ust_U: 4x8 Jacobian (column-major for SMatrix)
     # rows 1-3: linear extrapolation of th, ds, sa
     # row 4: K*xst with K depending on U1[4] and U2[4]
-    Ust_U = zeros(4, 8)
-    for j in 1:3
-        Ust_U[j, j] = w1       # d(Ust_j)/d(U1_j)
-        Ust_U[j, j + 4] = w2   # d(Ust_j)/d(U2_j)
-    end
-    Ust_U[4, :] = K_U * xst
+    Ust_U = SMatrix{4,8}(
+        w1, 0.0, 0.0, 0.0,      # col 1: d/dU1[1]
+        0.0, w1, 0.0, 0.0,      # col 2: d/dU1[2]
+        0.0, 0.0, w1, 0.0,      # col 3: d/dU1[3]
+        0.0, 0.0, 0.0, wk1*xst, # col 4: d/dU1[4]
+        w2, 0.0, 0.0, 0.0,      # col 5: d/dU2[1]
+        0.0, w2, 0.0, 0.0,      # col 6: d/dU2[2]
+        0.0, 0.0, w2, 0.0,      # col 7: d/dU2[3]
+        0.0, 0.0, 0.0, wk2*xst  # col 8: d/dU2[4]
+    )
 
-    # Ust_x: 4x2 Jacobian
-    Ust_x = zeros(4, 2)
-    for j in 1:3
-        Ust_x[j, :] = U1[j] * w1_x + U2[j] * w2_x
-    end
-    Ust_x[4, :] = K_x * xst
+    # Ust_x: 4x2 Jacobian (column-major)
+    Ust_x1 = SVector(U[1,1] * w1_x[1] + U[1,2] * w2_x[1],
+                      U[2,1] * w1_x[1] + U[2,2] * w2_x[1],
+                      U[3,1] * w1_x[1] + U[3,2] * w2_x[1],
+                      K_x[1] * xst)
+    Ust_x2 = SVector(U[1,1] * w1_x[2] + U[1,2] * w2_x[2],
+                      U[2,1] * w1_x[2] + U[2,2] * w2_x[2],
+                      U[3,1] * w1_x[2] + U[3,2] * w2_x[2],
+                      K_x[2] * xst)
+    Ust_x = hcat(Ust_x1, Ust_x2)
 
     return Ust, Ust_U, Ust_x, xst
 end
@@ -105,35 +116,29 @@ function residual_station(param, x::AbstractVector, Uin::AbstractMatrix, Aux::Ab
     #   Uin   : 4x2 matrix [U1 U2], states at the two points
     #   Aux   : 2-vector [Aux1, Aux2], auxiliary data (wake gap) at the points
     # OUTPUT
-    #   R     : 3-vector, residual (momentum, shape-param, amp/lag)
-    #   R_U   : 3x8 Jacobian w.r.t. [U1; U2]
-    #   R_x   : 3x2 Jacobian w.r.t. [x1, x2]
+    #   R     : SVector{3}, residual (momentum, shape-param, amp/lag)
+    #   R_U   : SMatrix{3,8} Jacobian w.r.t. [U1; U2]
+    #   R_x   : SMatrix{3,2} Jacobian w.r.t. [x1, x2]
 
-    # copy so we do not overwrite Uin
-    U = copy(Uin)
-
-    # modify ds to take out wake gap (in Aux) for all calculations below
-    U[2, 1] -= Aux[1]
-    U[2, 2] -= Aux[2]
-
-    # states
-    @views U1 = U[:, 1]; U2 = U[:, 2]
+    # construct columns with wake gap subtracted from ds (element 2)
+    U1 = SVector(Uin[1,1], Uin[2,1] - Aux[1], Uin[3,1], Uin[4,1])
+    U2 = SVector(Uin[1,2], Uin[2,2] - Aux[2], Uin[3,2], Uin[4,2])
     Um = 0.5 * (U1 + U2)
-    th = [U[1, 1], U[1, 2]]
-    ds = [U[2, 1], U[2, 2]]
-    sa = [U[3, 1], U[3, 2]]
+    th1 = U1[1]; th2 = U2[1]
+    ds1 = U1[2]; ds2 = U2[2]
+    sa1 = U1[3]; sa2 = U2[3]
 
     # speed needs compressibility correction
     uk1, uk1_u = get_uk(U1[4], param)
     uk2, uk2_u = get_uk(U2[4], param)
 
     # log changes
-    thlog = log(th[2] / th[1])
-    thlog_U = [-1.0/th[1], 0, 0, 0, 1.0/th[2], 0, 0, 0]
+    thlog = log(th2 / th1)
+    thlog_U = SVector(-1.0/th1, 0.0, 0.0, 0.0, 1.0/th2, 0.0, 0.0, 0.0)
     uelog = log(uk2 / uk1)
-    uelog_U = [0, 0, 0, -uk1_u/uk1, 0, 0, 0, uk2_u/uk2]
-    xlog = log(x[2] / x[1]); xlog_x = [-1.0/x[1], 1.0/x[2]]
-    dx = x[2] - x[1]; dx_x = [-1.0, 1.0]
+    uelog_U = SVector(0.0, 0.0, 0.0, -uk1_u/uk1, 0.0, 0.0, 0.0, uk2_u/uk2)
+    xlog = log(x[2] / x[1]); xlog_x = SVector(-1.0/x[1], 1.0/x[2])
+    dx = x[2] - x[1]; dx_x = SVector(-1.0, 1.0)
 
     # upwinding factor
     upw, upw_U = get_upw(U1, U2, param)
@@ -158,8 +163,8 @@ function residual_station(param, x::AbstractVector, Uin::AbstractMatrix, Aux::Ab
         thlog = 0.0; thlog_U = thlog_U .* 0.0
         Hslog = 0.0; Hslog_U = Hslog_U .* 0.0
         uelog = 1.0; uelog_U = uelog_U .* 0.0
-        xlog = 1.0; xlog_x = [0.0, 0.0]
-        dx = 0.5 * (x[1] + x[2]); dx_x = [0.5, 0.5]
+        xlog = 1.0; xlog_x = SVector(0.0, 0.0)
+        dx = 0.5 * (x[1] + x[2]); dx_x = SVector(0.5, 0.5)
     end
 
     # Hw = wake shape parameter
@@ -171,8 +176,8 @@ function residual_station(param, x::AbstractVector, Uin::AbstractMatrix, Aux::Ab
     # set up shear lag or amplification factor equation
     if param.turb
         # log change of root shear stress coeff
-        salog = log(sa[2] / sa[1])
-        salog_U = [0, 0, -1.0/sa[1], 0, 0, 0, 1.0/sa[2], 0]
+        salog = log(sa2 / sa1)
+        salog_U = SVector(0.0, 0.0, -1.0/sa1, 0.0, 0.0, 0.0, 1.0/sa2, 0.0)
 
         # BL thickness measure, averaged
         de1, de1_U1 = get_de(U1, param)
@@ -200,8 +205,8 @@ function residual_station(param, x::AbstractVector, Uin::AbstractMatrix, Aux::Ab
         cf, cf_U = upwind(upw, upw_U, cf1, cf1_U1, cf2, cf2_U2)
 
         # displacement thickness, averaged
-        dsa = 0.5 * (ds[1] + ds[2])
-        dsa_U = 0.5 * [0, 1, 0, 0, 0, 1, 0, 0]
+        dsa = 0.5 * (ds1 + ds2)
+        dsa_U = SVector(0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0)
 
         # uq = equilibrium 1/ue * due/dx
         uq, uq_U = get_uq(dsa, dsa_U, cf, cf_U, Hk, Hk_U, Ret, Ret_U, param)
@@ -212,7 +217,8 @@ function residual_station(param, x::AbstractVector, Uin::AbstractMatrix, Aux::Ab
         cteq, cteq_U = upwind(upw, upw_U, cteq1, cteq1_U1, cteq2, cteq2_U2)
 
         # root of shear coefficient (a state), upwinded
-        saa, saa_U = upwind(upw, upw_U, sa[1], [0, 0, 1, 0], sa[2], [0, 0, 1, 0])
+        sa_sv = SVector(0.0, 0.0, 1.0, 0.0)
+        saa, saa_U = upwind(upw, upw_U, sa1, sa_sv, sa2, sa_sv)
 
         # lag coefficient
         Klag = param.SlagK
@@ -235,17 +241,17 @@ function residual_station(param, x::AbstractVector, Uin::AbstractMatrix, Aux::Ab
         # laminar, amplification factor equation
         if param.simi
             # similarity station
-            Rlag = sa[1] + sa[2]  # no amplification
-            Rlag_U = Float64[0, 0, 1, 0, 0, 0, 1, 0]
-            Rlag_x = Float64[0, 0]
+            Rlag = sa1 + sa2  # no amplification
+            Rlag_U = SVector(0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0)
+            Rlag_x = SVector(0.0, 0.0)
         else
             # amplification factor equation
             damp1, damp1_U1 = get_damp(U1, param)
             damp2, damp2_U2 = get_damp(U2, param)
             damp, damp_U = upwind(0.5, 0, damp1, damp1_U1, damp2, damp2_U2)
 
-            Rlag = sa[2] - sa[1] - damp * dx
-            Rlag_U = Float64[0, 0, -1, 0, 0, 0, 1, 0] - damp_U * dx
+            Rlag = sa2 - sa1 - damp * dx
+            Rlag_U = SVector(0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0, 0.0) - damp_U * dx
             Rlag_x = -damp * dx_x
         end
     end
@@ -261,7 +267,7 @@ function residual_station(param, x::AbstractVector, Uin::AbstractMatrix, Aux::Ab
     cfxtm, cfxtm_Um, cfxtm_xm = get_cfxt(Um, 0.5 * (x[1] + x[2]), param)
     cfxt = 0.25 * cfxt1 + 0.5 * cfxtm + 0.25 * cfxt2
     cfxt_U = 0.25 * vcat(cfxt1_U1 + cfxtm_Um, cfxtm_Um + cfxt2_U2)
-    cfxt_x = 0.25 * [cfxt1_x1 + cfxtm_xm, cfxtm_xm + cfxt2_x2]
+    cfxt_x = SVector(0.25 * (cfxt1_x1 + cfxtm_xm), 0.25 * (cfxtm_xm + cfxt2_x2))
 
     # momentum equation
     Rmom = thlog + (2 + H + Hw - Ms) * uelog - 0.5 * xlog * cfxt
@@ -272,11 +278,11 @@ function residual_station(param, x::AbstractVector, Uin::AbstractMatrix, Aux::Ab
     cDixt1, cDixt1_U1, cDixt1_x1 = get_cDixt(U1, x[1], param)
     cDixt2, cDixt2_U2, cDixt2_x2 = get_cDixt(U2, x[2], param)
     cDixt, cDixt_U = upwind(upw, upw_U, cDixt1, cDixt1_U1, cDixt2, cDixt2_U2)
-    cDixt_x = [(1.0 - upw) * cDixt1_x1, upw * cDixt2_x2]
+    cDixt_x = SVector((1.0 - upw) * cDixt1_x1, upw * cDixt2_x2)
 
     # cf*x/theta, upwinded
     cfxtu, cfxtu_U = upwind(upw, upw_U, cfxt1, cfxt1_U1, cfxt2, cfxt2_U2)
-    cfxtu_x = [(1.0 - upw) * cfxt1_x1, upw * cfxt2_x2]
+    cfxtu_x = SVector((1.0 - upw) * cfxt1_x1, upw * cfxt2_x2)
 
     # Hss = density shape parameter, averaged
     Hss1, Hss1_U1 = get_Hss(U1, param)
@@ -290,7 +296,7 @@ function residual_station(param, x::AbstractVector, Uin::AbstractMatrix, Aux::Ab
     Rshape_x = xlog_x * (0.5 * cfxtu - cDixt) + xlog * (0.5 * cfxtu_x - cDixt_x)
 
     # put everything together
-    R = [Rmom, Rshape, Rlag]
+    R = SVector(Rmom, Rshape, Rlag)
     R_U = vcat(Rmom_U', Rshape_U', Rlag_U')
     R_x = vcat(Rmom_x', Rshape_x', Rlag_x')
 
@@ -316,8 +322,8 @@ function residual_transition(M::Mfoil, param, x::AbstractVector, U::AbstractMatr
 
     # states
     @views U1 = U[:, 1]; U2 = U[:, 2]
-    sa = [U[3, 1], U[3, 2]]
-    I1 = 1:4; I2 = 5:8; Z = zeros(4)
+    sa1 = U[3, 1]; sa2 = U[3, 2]
+    I1 = 1:4; I2 = 5:8
 
     # interval
     x1 = x[1]; x2 = x[2]; dx = x2 - x1
@@ -333,8 +339,9 @@ function residual_transition(M::Mfoil, param, x::AbstractVector, U::AbstractMatr
         Ut = w1 * U1 + w2 * U2; Ut_xt = (U2 - U1) / dx
         Ut[3] = ncrit; Ut_xt[3] = 0.0
         damp1, damp1_U1 = get_damp(U1, param)
-        dampt, dampt_Ut = get_damp(Ut, param); dampt_Ut[3] = 0.0
-        Rxt = ncrit - sa[1] - 0.5 * (xt - x1) * (damp1 + dampt)
+        dampt, dampt_Ut0 = get_damp(Ut, param)
+        dampt_Ut = SVector(dampt_Ut0[1], dampt_Ut0[2], 0.0, dampt_Ut0[4])
+        Rxt = ncrit - sa1 - 0.5 * (xt - x1) * (damp1 + dampt)
         Rxt_xt = -0.5 * (damp1 + dampt) - 0.5 * (xt - x1) * dot(dampt_Ut, Ut_xt)
         dxt = -Rxt / Rxt_xt
         vprint(param, 4, "   Transition: iNewton,Rxt,xt = $(iNewton),$(Rxt),$(xt)")
@@ -351,10 +358,11 @@ function residual_transition(M::Mfoil, param, x::AbstractVector, U::AbstractMatr
     Ut = w1 * U1 + w2 * U2; Ut_xt = (U2 - U1) / dx
     Ut[3] = ncrit; Ut_xt[3] = 0.0
     damp1, damp1_U1 = get_damp(U1, param)
-    dampt, dampt_Ut = get_damp(Ut, param); dampt_Ut[3] = 0.0
+    dampt, dampt_Ut0b = get_damp(Ut, param)
+    dampt_Ut = SVector(dampt_Ut0b[1], dampt_Ut0b[2], 0.0, dampt_Ut0b[4])
 
-    Rxt_U = -0.5 * (xt - x1) * vcat(damp1_U1 + dampt_Ut * w1, dampt_Ut * w2)
-    Rxt_U[3] -= 1.0
+    Rxt_U0 = -0.5 * (xt - x1) * vcat(damp1_U1 + dampt_Ut * w1, dampt_Ut * w2)
+    Rxt_U = setindex(Rxt_U0, Rxt_U0[3] - 1.0, 3)
     Rxt_xt = -0.5 * (damp1 + dampt) - 0.5 * (xt - x1) * dot(dampt_Ut, Ut_xt)
 
     Ut_x1 = (U2 - U1) * (w2 - 1) / dx; Ut_x2 = (U2 - U1) * (-w2) / dx
@@ -397,11 +405,11 @@ function residual_transition(M::Mfoil, param, x::AbstractVector, U::AbstractMatr
 
     # laminar/turbulent residuals and linearizations
     param_tr.turb = false
-    Rl, Rl_U, Rl_x = residual_station(param_tr, [x1, xt], hcat(U1, Utl), Aux)
+    Rl, Rl_U, Rl_x = residual_station(param_tr, SVector(x1, xt), hcat(SVector{4}(U1), SVector{4}(Utl)), Aux)
     Rl_U1 = Rl_U[:, I1]; Rl_Utl = Rl_U[:, I2]
 
     param_tr.turb = true
-    Rt, Rt_U, Rt_x = residual_station(param_tr, [xt, x2], hcat(Utt, U2), Aux)
+    Rt, Rt_U, Rt_x = residual_station(param_tr, SVector(xt, x2), hcat(SVector{4}(Utt), SVector{4}(U2)), Aux)
     Rt_Utt = Rt_U[:, I1]; Rt_U2 = Rt_U[:, I2]
 
     # combined residual and linearization
